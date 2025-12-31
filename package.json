@@ -1,0 +1,47 @@
+{
+  "name": "@hypnosus/docker-mcp-server",
+  "version": "0.1.0",
+  "description": "Universal Docker MCP server for AI assistants (Cursor, Claude Desktop)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "docker-mcp-server": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "dockerode": "^4.0.2",
+    "yaml": "^2.3.4",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.31",
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "docker",
+    "docker-compose",
+    "cursor",
+    "claude",
+    "ai",
+    "model-context-protocol"
+  ],
+  "author": "Danila Susak <danilasusak@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hypnosis/docker-mcp-server"
+  }
+}
