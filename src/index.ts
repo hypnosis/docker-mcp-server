@@ -13,6 +13,11 @@ import { logger } from './utils/logger.js';
 import { getDockerClient } from './utils/docker-client.js';
 import { ContainerTools } from './tools/container-tools.js';
 import { ExecutorTool } from './tools/executor-tool.js';
+import { DatabaseTools } from './tools/database-tools.js';
+import { adapterRegistry } from './adapters/adapter-registry.js';
+import { PostgreSQLAdapter } from './adapters/postgresql.js';
+import { RedisAdapter } from './adapters/redis.js';
+import { SQLiteAdapter } from './adapters/sqlite.js';
 
 async function main() {
   logger.info('Starting Docker MCP Server v0.1.0');
@@ -26,9 +31,18 @@ async function main() {
     process.exit(1);
   }
 
+  // Регистрация Database Adapters
+  adapterRegistry.register('postgresql', new PostgreSQLAdapter());
+  adapterRegistry.register('postgres', new PostgreSQLAdapter()); // alias
+  adapterRegistry.register('redis', new RedisAdapter());
+  adapterRegistry.register('sqlite', new SQLiteAdapter());
+  adapterRegistry.register('sqlite3', new SQLiteAdapter()); // alias
+  logger.info('Database adapters registered: PostgreSQL, Redis, SQLite');
+
   // Инициализация tools
   const containerTools = new ContainerTools();
   const executorTool = new ExecutorTool();
+  const databaseTools = new DatabaseTools();
 
   // Создание MCP Server
   const server = new Server(
@@ -51,6 +65,7 @@ async function main() {
       tools: [
         ...containerTools.getTools(),
         executorTool.getTool(),
+        ...databaseTools.getTools(),
       ],
     };
   });
@@ -71,6 +86,11 @@ async function main() {
       return executorTool.handleCall(request);
     }
 
+    // Database tools
+    if (toolName.startsWith('docker_db_')) {
+      return databaseTools.handleCall(request);
+    }
+
     throw new Error(`Unknown tool: ${toolName}`);
   });
 
@@ -79,7 +99,7 @@ async function main() {
   await server.connect(transport);
 
   logger.info('Docker MCP Server started successfully');
-  logger.info('Registered tools: 6 commands');
+  logger.info('Registered tools: 11 commands (6 container + 1 executor + 4 database)');
   logger.info('Listening on STDIO...');
 }
 

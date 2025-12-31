@@ -8,15 +8,18 @@ import {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { ContainerManager } from '../managers/container-manager.js';
+import { ComposeManager } from '../managers/compose-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
 
 export class ContainerTools {
   private containerManager: ContainerManager;
+  private composeManager: ComposeManager;
   private projectDiscovery: ProjectDiscovery;
 
   constructor() {
     this.containerManager = new ContainerManager();
+    this.composeManager = new ComposeManager();
     this.projectDiscovery = new ProjectDiscovery();
   }
 
@@ -126,8 +129,65 @@ export class ContainerTools {
               description: 'Show timestamps',
               default: false,
             },
+            follow: {
+              type: 'boolean',
+              description: 'Follow log output (stream)',
+              default: false,
+            },
           },
           required: ['service'],
+        },
+      },
+      {
+        name: 'docker_compose_up',
+        description: 'Start all services defined in docker-compose.yml',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            build: {
+              type: 'boolean',
+              description: 'Build images before starting',
+              default: false,
+            },
+            detach: {
+              type: 'boolean',
+              description: 'Run in background',
+              default: true,
+            },
+            services: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Start only specific services',
+            },
+            scale: {
+              type: 'object',
+              description: 'Scale services (e.g., {"web": 3})',
+            },
+          },
+        },
+      },
+      {
+        name: 'docker_compose_down',
+        description: 'Stop and remove all containers',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            volumes: {
+              type: 'boolean',
+              description: 'Remove volumes',
+              default: false,
+            },
+            removeOrphans: {
+              type: 'boolean',
+              description: 'Remove orphaned containers',
+              default: false,
+            },
+            timeout: {
+              type: 'number',
+              description: 'Shutdown timeout in seconds',
+              default: 10,
+            },
+          },
         },
       },
     ];
@@ -155,6 +215,12 @@ export class ContainerTools {
         
         case 'docker_container_logs':
           return await this.handleLogs(args);
+        
+        case 'docker_compose_up':
+          return await this.handleComposeUp(args);
+        
+        case 'docker_compose_down':
+          return await this.handleComposeDown(args);
         
         default:
           throw new Error(`Unknown tool: ${name}`);
@@ -258,13 +324,78 @@ export class ContainerTools {
     const logs = await this.containerManager.getLogs(args.service, project.name, {
       lines: args?.lines || 100,
       timestamps: args?.timestamps || false,
+      follow: args?.follow || false,
+    });
+
+    // Если это stream (follow mode), собираем данные из stream
+    if (args?.follow && typeof logs !== 'string') {
+      const stream = logs as NodeJS.ReadableStream;
+      const chunks: Buffer[] = [];
+
+      return new Promise((resolve, reject) => {
+        stream.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+
+        stream.on('end', () => {
+          const output = Buffer.concat(chunks).toString('utf-8');
+          resolve({
+            content: [
+              {
+                type: 'text',
+                text: output,
+              },
+            ],
+          });
+        });
+
+        stream.on('error', (error) => {
+          reject(error);
+        });
+      });
+    }
+
+    // Обычный режим (string)
+    return {
+      content: [
+        {
+          type: 'text',
+          text: logs as string,
+        },
+      ],
+    };
+  }
+
+  private async handleComposeUp(args: any) {
+    await this.composeManager.composeUp({
+      build: args?.build || false,
+      detach: args?.detach !== false, // default: true
+      services: args?.services,
+      scale: args?.scale,
     });
 
     return {
       content: [
         {
           type: 'text',
-          text: logs,
+          text: '✅ All services started successfully',
+        },
+      ],
+    };
+  }
+
+  private async handleComposeDown(args: any) {
+    await this.composeManager.composeDown({
+      volumes: args?.volumes || false,
+      removeOrphans: args?.removeOrphans || false,
+      timeout: args?.timeout || 10,
+    });
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: '✅ All services stopped successfully',
         },
       ],
     };

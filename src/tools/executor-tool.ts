@@ -40,6 +40,11 @@ export class ExecutorTool {
             type: 'string',
             description: 'Working directory (optional)',
           },
+          interactive: {
+            type: 'boolean',
+            description: 'Interactive mode (TTY) for REPL, bash, etc.',
+            default: false,
+          },
         },
         required: ['service', 'command'],
       },
@@ -52,6 +57,7 @@ export class ExecutorTool {
       command?: string;
       user?: string;
       workdir?: string;
+      interactive?: boolean;
     };
 
     try {
@@ -73,6 +79,7 @@ export class ExecutorTool {
         {
           user: args.user,
           workdir: args.workdir,
+          interactive: args.interactive || false,
         }
       );
 

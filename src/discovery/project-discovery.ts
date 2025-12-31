@@ -4,10 +4,12 @@
  */
 
 import { existsSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, join, basename } from 'path';
 import { logger } from '../utils/logger.js';
+import { projectConfigCache } from '../utils/cache.js';
 import { ComposeParser } from './compose-parser.js';
-import type { ProjectConfig, DiscoveryOptions } from './types.js';
+import { ConfigMerger } from './config-merger.js';
+import type { ProjectConfig, DiscoveryOptions, ServiceConfig } from './types.js';
 
 export class ProjectDiscovery {
   private readonly COMPOSE_FILENAMES = [
@@ -18,9 +20,11 @@ export class ProjectDiscovery {
   ];
 
   private parser: ComposeParser;
+  private merger: ConfigMerger;
 
   constructor() {
     this.parser = new ComposeParser();
+    this.merger = new ConfigMerger();
   }
 
   /**
@@ -29,27 +33,63 @@ export class ProjectDiscovery {
   async findProject(options: DiscoveryOptions = {}): Promise<ProjectConfig> {
     logger.debug('Starting project discovery', options);
 
-    // Explicit path имеет приоритет
-    if (options.explicitPath) {
-      if (!existsSync(options.explicitPath)) {
-        throw new Error(`Compose file not found: ${options.explicitPath}`);
+    // Генерируем ключ кеша
+    const cacheKey = this.getCacheKey(options);
+
+    // Проверяем кеш
+    const cached = projectConfigCache.get(cacheKey);
+    if (cached) {
+      logger.debug('Using cached project config');
+      return cached;
+    }
+
+    try {
+      let config: ProjectConfig;
+
+      // Explicit path имеет приоритет (используем только его, без merge)
+      if (options.explicitPath) {
+        if (!existsSync(options.explicitPath)) {
+          throw new Error(`Compose file not found: ${options.explicitPath}`);
+        }
+        config = await this.loadProject(options.explicitPath);
+      } else {
+        // Auto-detect multiple compose files
+        const cwd = options.cwd || process.cwd();
+        const composeFiles = this.autoDetectFiles(cwd);
+
+        if (composeFiles.length === 0) {
+          throw new Error(
+            'docker-compose.yml not found. Please run from project directory.\n' +
+            'Searched directories:\n' +
+            `  ${cwd} (and parent directories)`
+          );
+        }
+
+        config = await this.loadProject(composeFiles);
       }
-      return this.loadProject(options.explicitPath);
+
+      // Сохраняем в кеш
+      projectConfigCache.set(cacheKey, config);
+
+      return config;
+    } catch (error: any) {
+      // При ошибке инвалидируем кеш
+      projectConfigCache.invalidate(cacheKey);
+      logger.error('Project discovery failed, cache invalidated:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Генерирует ключ кеша для опций discovery
+   */
+  private getCacheKey(options: DiscoveryOptions): string {
+    if (options.explicitPath) {
+      return `project:${options.explicitPath}`;
     }
 
-    // Recursive search
     const cwd = options.cwd || process.cwd();
-    const composeFile = this.findComposeFile(cwd);
-
-    if (!composeFile) {
-      throw new Error(
-        'docker-compose.yml not found. Please run from project directory.\n' +
-        'Searched directories:\n' +
-        `  ${cwd} (and parent directories)`
-      );
-    }
-
-    return this.loadProject(composeFile);
+    return `project:${cwd}`;
   }
 
   /**
@@ -83,10 +123,171 @@ export class ProjectDiscovery {
   }
 
   /**
-   * Загружает и парсит compose file
+   * Auto-detect compose файлов (base + env + override)
    */
-  private async loadProject(composeFile: string): Promise<ProjectConfig> {
-    logger.debug(`Loading project from: ${composeFile}`);
-    return this.parser.parse(composeFile);
+  private autoDetectFiles(cwd: string): string[] {
+    const files: string[] = [];
+    const projectDir = this.findComposeFile(cwd);
+    
+    if (!projectDir) {
+      return [];
+    }
+
+    const dir = dirname(projectDir);
+
+    // 1. Base file (docker-compose.yml)
+    const baseFile = join(dir, 'docker-compose.yml');
+    if (existsSync(baseFile)) {
+      files.push(baseFile);
+      logger.debug(`Found base file: ${baseFile}`);
+    }
+
+    // 2. Environment-specific file (docker-compose.{env}.yml)
+    const nodeEnv = process.env.NODE_ENV;
+    if (nodeEnv) {
+      const envFile = join(dir, `docker-compose.${nodeEnv}.yml`);
+      if (existsSync(envFile)) {
+        files.push(envFile);
+        logger.debug(`Found environment file: ${envFile}`);
+      }
+    }
+
+    // 3. Override file (docker-compose.override.yml) - всегда последний
+    const overrideFile = join(dir, 'docker-compose.override.yml');
+    if (existsSync(overrideFile)) {
+      files.push(overrideFile);
+      logger.debug(`Found override file: ${overrideFile}`);
+    }
+
+    return files;
+  }
+
+  /**
+   * Загружает и парсит compose file(s)
+   * Поддерживает как один файл, так и несколько (для merge)
+   */
+  private async loadProject(composeFiles: string | string[]): Promise<ProjectConfig> {
+    const files = Array.isArray(composeFiles) ? composeFiles : [composeFiles];
+    
+    if (files.length === 0) {
+      throw new Error('No compose files provided');
+    }
+
+    logger.debug(`Loading project from ${files.length} file(s):`, files);
+
+    // Если один файл → просто парсим
+    if (files.length === 1) {
+      return this.parser.parse(files[0]);
+    }
+
+    // Несколько файлов → парсим каждый и мержим
+    const parsedConfigs = files.map(file => {
+      return this.parser.parseRaw(file);
+    });
+
+    // Мержим конфиги
+    const mergedConfig = this.merger.merge(parsedConfigs);
+
+    // Используем первый файл как базовый для определения projectDir и name
+    const baseFile = files[0];
+    const projectDir = dirname(baseFile);
+    const projectName = this.extractProjectName(baseFile, mergedConfig);
+
+    // Парсим merged config в ProjectConfig
+    return {
+      name: projectName,
+      composeFile: baseFile, // Используем первый файл как основной
+      projectDir,
+      services: this.parseServices(mergedConfig.services || {}),
+    };
+  }
+
+  /**
+   * Извлекает имя проекта из конфига
+   */
+  private extractProjectName(composeFile: string, parsed: any): string {
+    // 1. Из parsed.name (Compose v2)
+    if (parsed.name) return parsed.name;
+
+    // 2. Из имени директории
+    const dir = dirname(composeFile);
+    return basename(dir);
+  }
+
+  /**
+   * Парсит секцию services (из merged config)
+   */
+  private parseServices(services: Record<string, any>): Record<string, ServiceConfig> {
+    // Используем логику из ComposeParser
+    const result: Record<string, ServiceConfig> = {};
+
+    for (const [name, config] of Object.entries(services)) {
+      result[name] = {
+        name,
+        image: config.image,
+        build: config.build,
+        ports: this.parsePorts(config.ports),
+        environment: this.parseEnvironment(config.environment),
+        type: this.detectServiceType(config),
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Парсит ports
+   */
+  private parsePorts(ports: any): string[] | undefined {
+    if (!ports) return undefined;
+
+    if (Array.isArray(ports)) {
+      return ports.map((port: any) => {
+        if (typeof port === 'string') {
+          return port;
+        }
+        if (port.published && port.target) {
+          return `${port.published}:${port.target}`;
+        }
+        return String(port);
+      });
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Парсит environment
+   */
+  private parseEnvironment(env: any): Record<string, string> | undefined {
+    if (!env) return undefined;
+
+    if (Array.isArray(env)) {
+      const result: Record<string, string> = {};
+      for (const item of env) {
+        const [key, ...valueParts] = item.split('=');
+        if (key) {
+          result[key] = valueParts.join('=');
+        }
+      }
+      return result;
+    }
+
+    return env;
+  }
+
+  /**
+   * Определяет тип сервиса
+   */
+  private detectServiceType(config: any): 'generic' | 'postgresql' | 'redis' | 'sqlite' | 'mysql' | 'mongodb' {
+    const image = (config.image || '').toLowerCase();
+
+    if (image.includes('postgres')) return 'postgresql';
+    if (image.includes('redis')) return 'redis';
+    if (image.includes('mysql')) return 'mysql';
+    if (image.includes('mongo')) return 'mongodb';
+    if (image.includes('sqlite')) return 'sqlite';
+
+    return 'generic';
   }
 }

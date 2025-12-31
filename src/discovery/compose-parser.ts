@@ -16,8 +16,7 @@ export class ComposeParser {
     logger.debug(`Parsing compose file: ${composeFile}`);
 
     try {
-      const content = readFileSync(composeFile, 'utf-8');
-      const parsed = parseYaml(content);
+      const parsed = this.parseRaw(composeFile);
 
       if (!parsed || !parsed.services) {
         throw new Error('Invalid docker-compose.yml: missing services');
@@ -36,6 +35,14 @@ export class ComposeParser {
       logger.error('Failed to parse compose file:', error);
       throw new Error(`Failed to parse ${composeFile}: ${error.message}`);
     }
+  }
+
+  /**
+   * Парсит raw YAML (для merge нескольких файлов)
+   */
+  parseRaw(composeFile: string): any {
+    const content = readFileSync(composeFile, 'utf-8');
+    return parseYaml(content);
   }
 
   /**

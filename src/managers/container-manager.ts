@@ -83,28 +83,33 @@ export class ContainerManager {
 
   /**
    * Получить логи контейнера
+   * Возвращает string для обычного режима или stream для follow mode
    */
-  async getLogs(serviceName: string, projectName: string, options: LogOptions = {}): Promise<string> {
+  async getLogs(
+    serviceName: string,
+    projectName: string,
+    options: LogOptions = {}
+  ): Promise<string | NodeJS.ReadableStream> {
     const container = await this.findContainer(serviceName, projectName);
-    
-    logger.debug(`Getting logs for: ${serviceName}`, options);
 
-    // Для follow mode нужна отдельная обработка
-    if (options.follow) {
-      // В Sprint 1 поддерживаем только non-follow режим
-      // Follow mode будет добавлен позже через streaming
-      logger.warn('Follow mode not yet supported in Sprint 1');
-    }
+    logger.debug(`Getting logs for: ${serviceName}`, options);
 
     const logs = await container.logs({
       stdout: true,
       stderr: true,
       tail: options.lines || 100,
-      follow: false as const,
+      follow: options.follow || false,
       timestamps: options.timestamps || false,
       since: options.since,
     });
 
+    // Если follow mode → возвращаем stream
+    if (options.follow) {
+      logger.debug('Returning stream for follow mode');
+      return logs as NodeJS.ReadableStream;
+    }
+
+    // Иначе → возвращаем string
     return logs.toString('utf-8');
   }
 
@@ -115,22 +120,30 @@ export class ContainerManager {
     serviceName: string,
     projectName: string,
     command: string[],
-    options: { user?: string; workdir?: string; env?: string[] } = {}
+    options: { user?: string; workdir?: string; env?: string[]; interactive?: boolean } = {}
   ): Promise<string> {
     const container = await this.findContainer(serviceName, projectName);
     
     logger.debug(`Executing in ${serviceName}:`, command.join(' '));
+    if (options.interactive) {
+      logger.debug('Interactive mode (TTY) enabled');
+    }
 
     const exec = await container.exec({
       Cmd: command,
       AttachStdout: true,
       AttachStderr: true,
+      AttachStdin: options.interactive || false,
+      Tty: options.interactive || false,
       User: options.user,
       WorkingDir: options.workdir,
       Env: options.env,
     });
 
-    const stream = await exec.start({});
+    const stream = await exec.start({
+      hijack: options.interactive || false,
+      stdin: options.interactive || false,
+    });
     
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
