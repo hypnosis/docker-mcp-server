@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  
+  <!-- Key definitions for node styling -->
+  <key id="nodeType" for="node" attr.name="type" attr.type="string"/>
+  <key id="nodeLabel" for="node" attr.name="label" attr.type="string"/>
+  <key id="nodeColor" for="node" attr.name="color" attr.type="string"/>
+  <key id="edgeType" for="edge" attr.name="type" attr.type="string"/>
+  <key id="edgeLabel" for="edge" attr.name="label" attr.type="string"/>
+  
+  <graph id="docker-mcp-architecture" edgedefault="directed">
+    
+    <!-- MCP Client Layer -->
+    <node id="mcp-client">
+      <data key="nodeLabel">MCP Client (Cursor/Claude)</data>
+      <data key="nodeType">client</data>
+      <data key="nodeColor">#E3F2FD</data>
+    </node>
+    
+    <!-- MCP Server Layer -->
+    <node id="mcp-server">
+      <data key="nodeLabel">MCP Server (index.ts)</data>
+      <data key="nodeType">server</data>
+      <data key="nodeColor">#FFF3E0</data>
+    </node>
+    
+    <!-- Project Discovery -->
+    <node id="project-discovery">
+      <data key="nodeLabel">Project Discovery</data>
+      <data key="nodeType">module</data>
+      <data key="nodeColor">#E8F5E9</data>
+    </node>
+    
+    <node id="compose-parser">
+      <data key="nodeLabel">Compose Parser</data>
+      <data key="nodeType">module</data>
+      <data key="nodeColor">#E8F5E9</data>
+    </node>
+    
+    <node id="config-merger">
+      <data key="nodeLabel">Config Merger</data>
+      <data key="nodeType">module</data>
+      <data key="nodeColor">#E8F5E9</data>
+    </node>
+    
+    <!-- Docker Client -->
+    <node id="docker-client">
+      <data key="nodeLabel">Dockerode Client</data>
+      <data key="nodeType">client</data>
+      <data key="nodeColor">#F3E5F5</data>
+    </node>
+    
+    <!-- Managers -->
+    <node id="container-manager">
+      <data key="nodeLabel">Container Manager</data>
+      <data key="nodeType">manager</data>
+      <data key="nodeColor">#E1F5FE</data>
+    </node>
+    
+    <node id="compose-manager">
+      <data key="nodeLabel">Compose Manager</data>
+      <data key="nodeType">manager</data>
+      <data key="nodeColor">#E1F5FE</data>
+    </node>
+    
+    <node id="env-manager">
+      <data key="nodeLabel">Environment Manager</data>
+      <data key="nodeType">manager</data>
+      <data key="nodeColor">#E1F5FE</data>
+    </node>
+    
+    <!-- Database Adapters -->
+    <node id="adapter-registry">
+      <data key="nodeLabel">Adapter Registry</data>
+      <data key="nodeType">registry</data>
+      <data key="nodeColor">#FFF9C4</data>
+    </node>
+    
+    <node id="postgresql-adapter">
+      <data key="nodeLabel">PostgreSQL Adapter</data>
+      <data key="nodeType">adapter</data>
+      <data key="nodeColor">#FFF9C4</data>
+    </node>
+    
+    <node id="redis-adapter">
+      <data key="nodeLabel">Redis Adapter</data>
+      <data key="nodeType">adapter</data>
+      <data key="nodeColor">#FFF9C4</data>
+    </node>
+    
+    <node id="sqlite-adapter">
+      <data key="nodeLabel">SQLite Adapter</data>
+      <data key="nodeType">adapter</data>
+      <data key="nodeColor">#FFF9C4</data>
+    </node>
+    
+    <!-- Security -->
+    <node id="secrets-masker">
+      <data key="nodeLabel">Secrets Masker</data>
+      <data key="nodeType">security</data>
+      <data key="nodeColor">#FFEBEE</data>
+    </node>
+    
+    <node id="sql-validator">
+      <data key="nodeLabel">SQL Validator</data>
+      <data key="nodeType">security</data>
+      <data key="nodeColor">#FFEBEE</data>
+    </node>
+    
+    <!-- Tools -->
+    <node id="container-tools">
+      <data key="nodeLabel">Container Tools (7 commands)</data>
+      <data key="nodeType">tools</data>
+      <data key="nodeColor">#FCE4EC</data>
+    </node>
+    
+    <node id="database-tools">
+      <data key="nodeLabel">Database Tools (4 commands)</data>
+      <data key="nodeType">tools</data>
+      <data key="nodeColor">#FCE4EC</data>
+    </node>
+    
+    <node id="env-tools">
+      <data key="nodeLabel">Environment Tools (3 commands)</data>
+      <data key="nodeType">tools</data>
+      <data key="nodeColor">#FCE4EC</data>
+    </node>
+    
+    <node id="executor-tool">
+      <data key="nodeLabel">Universal Executor (1 command)</data>
+      <data key="nodeType">tools</data>
+      <data key="nodeColor">#FCE4EC</data>
+    </node>
+    
+    <!-- Docker Engine -->
+    <node id="docker-engine">
+      <data key="nodeLabel">Docker Engine</data>
+      <data key="nodeType">external</data>
+      <data key="nodeColor">#E0E0E0</data>
+    </node>
+    
+    <!-- Utilities -->
+    <node id="logger">
+      <data key="nodeLabel">Logger</data>
+      <data key="nodeType">utility</data>
+      <data key="nodeColor">#FAFAFA</data>
+    </node>
+    
+    <node id="cache">
+      <data key="nodeLabel">Cache</data>
+      <data key="nodeType">utility</data>
+      <data key="nodeColor">#FAFAFA</data>
+    </node>
+    
+    <!-- Edges: MCP Client to Server -->
+    <edge id="e1" source="mcp-client" target="mcp-server">
+      <data key="edgeLabel">MCP Protocol (STDIO)</data>
+      <data key="edgeType">protocol</data>
+    </edge>
+    
+    <!-- Edges: MCP Server to Tools -->
+    <edge id="e2" source="mcp-server" target="container-tools">
+      <data key="edgeLabel">registers</data>
+      <data key="edgeType">registration</data>
+    </edge>
+    
+    <edge id="e3" source="mcp-server" target="database-tools">
+      <data key="edgeLabel">registers</data>
+      <data key="edgeType">registration</data>
+    </edge>
+    
+    <edge id="e4" source="mcp-server" target="env-tools">
+      <data key="edgeLabel">registers</data>
+      <data key="edgeType">registration</data>
+    </edge>
+    
+    <edge id="e5" source="mcp-server" target="executor-tool">
+      <data key="edgeLabel">registers</data>
+      <data key="edgeType">registration</data>
+    </edge>
+    
+    <!-- Edges: Tools to Managers/Adapters -->
+    <edge id="e6" source="container-tools" target="container-manager">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e7" source="container-tools" target="project-discovery">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e8" source="database-tools" target="adapter-registry">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e9" source="database-tools" target="project-discovery">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e10" source="database-tools" target="env-manager">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e11" source="env-tools" target="env-manager">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e12" source="env-tools" target="project-discovery">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e13" source="executor-tool" target="container-manager">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <!-- Edges: Project Discovery -->
+    <edge id="e14" source="project-discovery" target="compose-parser">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e15" source="project-discovery" target="config-merger">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e16" source="project-discovery" target="cache">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <!-- Edges: Managers to Docker Client -->
+    <edge id="e17" source="container-manager" target="docker-client">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e18" source="compose-manager" target="docker-client">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e19" source="env-manager" target="secrets-masker">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <!-- Edges: Adapter Registry to Adapters -->
+    <edge id="e20" source="adapter-registry" target="postgresql-adapter">
+      <data key="edgeLabel">manages</data>
+      <data key="edgeType">management</data>
+    </edge>
+    
+    <edge id="e21" source="adapter-registry" target="redis-adapter">
+      <data key="edgeLabel">manages</data>
+      <data key="edgeType">management</data>
+    </edge>
+    
+    <edge id="e22" source="adapter-registry" target="sqlite-adapter">
+      <data key="edgeLabel">manages</data>
+      <data key="edgeType">management</data>
+    </edge>
+    
+    <!-- Edges: Adapters to Managers/Docker -->
+    <edge id="e23" source="postgresql-adapter" target="container-manager">
+      <data key="edgeLabel">exec via</data>
+      <data key="edgeType">execution</data>
+    </edge>
+    
+    <edge id="e24" source="redis-adapter" target="container-manager">
+      <data key="edgeLabel">exec via</data>
+      <data key="edgeType">execution</data>
+    </edge>
+    
+    <edge id="e25" source="sqlite-adapter" target="container-manager">
+      <data key="edgeLabel">exec via</data>
+      <data key="edgeType">execution</data>
+    </edge>
+    
+    <edge id="e26" source="postgresql-adapter" target="env-manager">
+      <data key="edgeLabel">gets credentials from</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e27" source="redis-adapter" target="env-manager">
+      <data key="edgeLabel">gets credentials from</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e28" source="sqlite-adapter" target="env-manager">
+      <data key="edgeLabel">gets credentials from</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <!-- Edges: SQL Validator to Database Tools -->
+    <edge id="e29" source="database-tools" target="sql-validator">
+      <data key="edgeLabel">uses (optional)</data>
+      <data key="edgeType">optional</data>
+    </edge>
+    
+    <!-- Edges: Docker Client to Docker Engine -->
+    <edge id="e30" source="docker-client" target="docker-engine">
+      <data key="edgeLabel">Docker API</data>
+      <data key="edgeType">api</data>
+    </edge>
+    
+    <!-- Edges: Logger usage -->
+    <edge id="e31" source="mcp-server" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+    
+    <edge id="e32" source="container-manager" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+    
+    <edge id="e33" source="project-discovery" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+    
+  </graph>
+</graphml>
+
