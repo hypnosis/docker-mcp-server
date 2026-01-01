@@ -100,23 +100,32 @@ export class ContainerManager {
 
     logger.debug(`Getting logs for: ${serviceName}`, options);
 
-    const logs = await container.logs({
-      stdout: true,
-      stderr: true,
-      tail: options.lines || 100,
-      follow: options.follow || false,
-      timestamps: options.timestamps || false,
-      since: options.since,
-    });
-
     // Если follow mode → возвращаем stream
     if (options.follow) {
       logger.debug('Returning stream for follow mode');
+      const logs = await container.logs({
+        stdout: true,
+        stderr: true,
+        tail: options.lines || 100,
+        follow: true,
+        timestamps: options.timestamps || false,
+        since: options.since,
+      });
       return logs as NodeJS.ReadableStream;
     }
 
     // Иначе → возвращаем string
-    return logs.toString('utf-8');
+    const logs = await container.logs({
+      stdout: true,
+      stderr: true,
+      tail: options.lines || 100,
+      follow: false,
+      timestamps: options.timestamps || false,
+      since: options.since,
+    });
+
+    // logs теперь Buffer, конвертируем в string
+    return Buffer.isBuffer(logs) ? logs.toString('utf-8') : (logs as Buffer).toString('utf-8');
   }
 
   /**

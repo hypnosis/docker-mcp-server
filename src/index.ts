@@ -22,7 +22,7 @@ import { RedisAdapter } from './adapters/redis.js';
 import { SQLiteAdapter } from './adapters/sqlite.js';
 
 async function main() {
-  logger.info('Starting Docker MCP Server v0.1.0');
+  logger.info('Starting Docker MCP Server v1.0.0');
 
   // Проверка Docker
   try {

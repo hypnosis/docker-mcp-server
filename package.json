@@ -1,6 +1,6 @@
 {
-  "name": "@hypnosus/docker-mcp-server",
-  "version": "0.1.0",
+  "name": "@hypnosis/docker-mcp-server",
+  "version": "1.0.0",
   "description": "Universal Docker MCP server for AI assistants (Cursor, Claude Desktop)",
   "type": "module",
   "main": "./dist/index.js",
@@ -8,8 +8,14 @@
   "bin": {
     "docker-mcp-server": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "clean": "rm -rf dist",
