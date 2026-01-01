@@ -89,5 +89,5 @@ dot -Tpng architecture.graphml -o architecture.png
 
 ---
 
-**Обновлено:** 2025-01-XX
+**Обновлено:** 2025-01-01 (Sprint 3)
 

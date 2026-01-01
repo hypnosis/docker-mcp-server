@@ -97,6 +97,18 @@
       <data key="nodeColor">#FCE4EC</data>
     </node>
     
+    <node id="env-tools">
+      <data key="nodeLabel">Environment Tools (3 commands) ✅</data>
+      <data key="nodeType">tools</data>
+      <data key="nodeColor">#FCE4EC</data>
+    </node>
+    
+    <node id="mcp-health-tool">
+      <data key="nodeLabel">MCP Health Tool ✅</data>
+      <data key="nodeType">tools</data>
+      <data key="nodeColor">#FCE4EC</data>
+    </node>
+    
     <!-- Docker Engine -->
     <node id="docker-engine">
       <data key="nodeLabel">Docker Engine</data>
@@ -173,6 +185,16 @@
     </edge>
     
     <edge id="e5b" source="mcp-server" target="database-tools">
+      <data key="edgeLabel">registers</data>
+      <data key="edgeType">registration</data>
+    </edge>
+    
+    <edge id="e5c" source="mcp-server" target="env-tools">
+      <data key="edgeLabel">registers</data>
+      <data key="edgeType">registration</data>
+    </edge>
+    
+    <edge id="e5d" source="mcp-server" target="mcp-health-tool">
       <data key="edgeLabel">registers</data>
       <data key="edgeType">registration</data>
     </edge>
@@ -348,6 +370,53 @@
       <data key="edgeType">dependency</data>
     </edge>
     
+    <!-- Edges: Environment Tools -->
+    <edge id="e60" source="env-tools" target="env-manager">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e61" source="env-tools" target="project-discovery">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e62" source="env-tools" target="container-manager">
+      <data key="edgeLabel">uses (for healthcheck)</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e63" source="env-tools" target="compose-parser">
+      <data key="edgeLabel">uses (for config)</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e64" source="env-tools" target="compose-exec">
+      <data key="edgeLabel">uses (for resolve)</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <!-- Edges: MCP Health Tool -->
+    <edge id="e65" source="mcp-health-tool" target="docker-client">
+      <data key="edgeLabel">checks</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e66" source="mcp-health-tool" target="project-discovery">
+      <data key="edgeLabel">checks</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e67" source="mcp-health-tool" target="adapter-registry">
+      <data key="edgeLabel">checks</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e68" source="mcp-health-tool" target="cache">
+      <data key="edgeLabel">checks</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
     <!-- Edges: Logger usage (new modules) -->
     <edge id="e53" source="compose-manager" target="logger">
       <data key="edgeLabel">logs to</data>
@@ -380,6 +449,26 @@
     </edge>
     
     <edge id="e59" source="sqlite-adapter" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+    
+    <edge id="e69" source="env-tools" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+    
+    <edge id="e70" source="mcp-health-tool" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+    
+    <edge id="e71" source="compose-parser" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+    
+    <edge id="e72" source="config-merger" target="logger">
       <data key="edgeLabel">logs to</data>
       <data key="edgeType">logging</data>
     </edge>
