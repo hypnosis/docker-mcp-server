@@ -24,6 +24,12 @@ export interface LogOptions {
   since?: string;
 }
 
+export interface ContainerHealthStatus {
+  status: 'healthy' | 'unhealthy' | 'starting' | 'none' | 'not_running';
+  checks: number;
+  failures: number;
+}
+
 export class ContainerManager {
   private docker: Docker;
 
@@ -111,6 +117,48 @@ export class ContainerManager {
 
     // Иначе → возвращаем string
     return logs.toString('utf-8');
+  }
+
+  /**
+   * Получить health status контейнера
+   */
+  async getHealthStatus(serviceName: string, projectName: string): Promise<ContainerHealthStatus> {
+    const container = await this.findContainer(serviceName, projectName);
+    
+    try {
+      const info = await container.inspect();
+      
+      // Если контейнер не running
+      if (info.State.Status !== 'running') {
+        return {
+          status: 'not_running',
+          checks: 0,
+          failures: 0,
+        };
+      }
+      
+      // Если healthcheck не определён
+      if (!info.State.Health) {
+        return {
+          status: 'none',
+          checks: 0,
+          failures: 0,
+        };
+      }
+      
+      // Healthcheck определён
+      const health = info.State.Health;
+      const status = health.Status as 'healthy' | 'unhealthy' | 'starting';
+      
+      return {
+        status: status || 'none',
+        checks: health.Log?.length || 0,
+        failures: health.FailingStreak || 0,
+      };
+    } catch (error: any) {
+      logger.error(`Failed to get health status for ${serviceName}:`, error);
+      throw new Error(`Failed to inspect container: ${error.message}`);
+    }
   }
 
   /**

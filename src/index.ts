@@ -14,6 +14,8 @@ import { getDockerClient } from './utils/docker-client.js';
 import { ContainerTools } from './tools/container-tools.js';
 import { ExecutorTool } from './tools/executor-tool.js';
 import { DatabaseTools } from './tools/database-tools.js';
+import { EnvTools } from './tools/env-tools.js';
+import { MCPHealthTool } from './tools/mcp-health-tool.js';
 import { adapterRegistry } from './adapters/adapter-registry.js';
 import { PostgreSQLAdapter } from './adapters/postgresql.js';
 import { RedisAdapter } from './adapters/redis.js';
@@ -43,6 +45,8 @@ async function main() {
   const containerTools = new ContainerTools();
   const executorTool = new ExecutorTool();
   const databaseTools = new DatabaseTools();
+  const envTools = new EnvTools();
+  const mcpHealthTool = new MCPHealthTool();
 
   // Создание MCP Server
   const server = new Server(
@@ -66,6 +70,8 @@ async function main() {
         ...containerTools.getTools(),
         executorTool.getTool(),
         ...databaseTools.getTools(),
+        ...envTools.getTools(),
+        mcpHealthTool.getTool(),
       ],
     };
   });
@@ -91,6 +97,16 @@ async function main() {
       return databaseTools.handleCall(request);
     }
 
+    // Environment tools
+    if (toolName.startsWith('docker_env_') || toolName === 'docker_compose_config' || toolName === 'docker_healthcheck') {
+      return envTools.handleCall(request);
+    }
+
+    // MCP Health tool
+    if (toolName === 'docker_mcp_health') {
+      return mcpHealthTool.handleCall(request);
+    }
+
     throw new Error(`Unknown tool: ${toolName}`);
   });
 
@@ -99,7 +115,7 @@ async function main() {
   await server.connect(transport);
 
   logger.info('Docker MCP Server started successfully');
-  logger.info('Registered tools: 11 commands (6 container + 1 executor + 4 database)');
+  logger.info('Registered tools: 15 commands (6 container + 1 executor + 4 database + 3 environment + 1 mcp-health)');
   logger.info('Listening on STDIO...');
 }
 
