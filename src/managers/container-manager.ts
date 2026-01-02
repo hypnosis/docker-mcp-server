@@ -1,6 +1,6 @@
 /**
  * Container Manager
- * Управление Docker контейнерами
+ * Docker container management
  */
 
 import type Docker from 'dockerode';
@@ -39,12 +39,12 @@ export class ContainerManager {
   }
 
   /**
-   * Список контейнеров проекта
+   * List project containers
    */
   async listContainers(projectName: string, composeFile?: string, projectDir?: string): Promise<ContainerInfo[]> {
     logger.debug(`Listing containers for project: ${projectName}`);
 
-    // Вариант 1: Используем Docker Compose labels (прямой вызов Docker API)
+    // Option 1: Use Docker Compose labels (direct Docker API call)
     try {
       const containers = await this.docker.listContainers({
         all: true,
@@ -63,7 +63,7 @@ export class ContainerManager {
       logger.debug('Failed to list containers via labels:', error);
     }
 
-    // Fallback 1: Используем docker-compose ps CLI (если есть composeFile)
+    // Fallback 1: Use docker-compose ps CLI (if composeFile exists)
     if (composeFile && projectDir) {
       try {
         const { ComposeExec } = await import('../utils/compose-exec.js');
@@ -86,7 +86,7 @@ export class ContainerManager {
         if (composeContainers.length > 0) {
           logger.debug(`Found ${composeContainers.length} containers via docker-compose ps`);
           
-          // Получаем полную информацию о контейнерах через Docker API
+          // Get full container information via Docker API
           const containerNames = composeContainers.map(c => c.Name);
           const allContainers = await this.docker.listContainers({ all: true });
           
@@ -108,7 +108,7 @@ export class ContainerManager {
       }
     }
 
-    // Fallback 2: Фильтр по имени проекта в названии контейнера
+    // Fallback 2: Filter by project name in container name
     logger.debug('Using name-based filter as final fallback');
     const containers = await this.docker.listContainers({
       all: true,
@@ -121,7 +121,7 @@ export class ContainerManager {
   }
 
   /**
-   * Запустить контейнер
+   * Start container
    */
   async startContainer(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<void> {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
@@ -132,7 +132,7 @@ export class ContainerManager {
   }
 
   /**
-   * Остановить контейнер
+   * Stop container
    */
   async stopContainer(serviceName: string, projectName: string, timeout = 10, composeFile?: string, projectDir?: string): Promise<void> {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
@@ -143,7 +143,7 @@ export class ContainerManager {
   }
 
   /**
-   * Перезапустить контейнер
+   * Restart container
    */
   async restartContainer(serviceName: string, projectName: string, timeout = 10, composeFile?: string, projectDir?: string): Promise<void> {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
@@ -154,8 +154,8 @@ export class ContainerManager {
   }
 
   /**
-   * Получить логи контейнера
-   * Возвращает string для обычного режима или stream для follow mode
+   * Get container logs
+   * Returns string for normal mode or stream for follow mode
    */
   async getLogs(
     serviceName: string,
@@ -168,7 +168,7 @@ export class ContainerManager {
 
     logger.debug(`Getting logs for: ${serviceName}`, options);
 
-    // Если follow mode → возвращаем stream
+    // If follow mode → return stream
     if (options.follow) {
       logger.debug('Returning stream for follow mode');
       const logs = await container.logs({
@@ -182,7 +182,7 @@ export class ContainerManager {
       return logs as NodeJS.ReadableStream;
     }
 
-    // Иначе → возвращаем string
+    // Otherwise → return string
     const logs = await container.logs({
       stdout: true,
       stderr: true,
@@ -192,12 +192,12 @@ export class ContainerManager {
       since: options.since,
     });
 
-    // logs теперь Buffer, конвертируем в string
+    // logs is now Buffer, convert to string
     return Buffer.isBuffer(logs) ? logs.toString('utf-8') : (logs as Buffer).toString('utf-8');
   }
 
   /**
-   * Получить health status контейнера
+   * Get container health status
    */
   async getHealthStatus(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<ContainerHealthStatus> {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
@@ -205,7 +205,7 @@ export class ContainerManager {
     try {
       const info = await container.inspect();
       
-      // Если контейнер не running
+      // If container is not running
       if (info.State.Status !== 'running') {
         return {
           status: 'not_running',
@@ -214,7 +214,7 @@ export class ContainerManager {
         };
       }
       
-      // Если healthcheck не определён
+      // If healthcheck is not defined
       if (!info.State.Health) {
         return {
           status: 'none',
@@ -223,7 +223,7 @@ export class ContainerManager {
         };
       }
       
-      // Healthcheck определён
+      // Healthcheck is defined
       const health = info.State.Health;
       const status = health.Status as 'healthy' | 'unhealthy' | 'starting';
       
@@ -239,7 +239,7 @@ export class ContainerManager {
   }
 
   /**
-   * Выполнить команду в контейнере
+   * Execute command in container
    */
   async exec(
     serviceName: string,
@@ -282,7 +282,7 @@ export class ContainerManager {
   }
 
   /**
-   * Найти контейнер по имени сервиса
+   * Find container by service name
    */
   private async findContainer(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<Docker.Container> {
     const containers = await this.listContainers(projectName, composeFile, projectDir);
@@ -301,13 +301,13 @@ export class ContainerManager {
   }
 
   /**
-   * Маппинг Docker ContainerInfo → наш формат
+   * Map Docker ContainerInfo → our format
    */
   private mapContainerInfo(container: any, projectName: string, serviceNameOverride?: string): ContainerInfo {
-    // Имя контейнера: /project_service_1 → извлекаем service
+    // Container name: /project_service_1 → extract service
     const fullName = container.Names[0]?.replace(/^\//, '') || '';
     
-    // Приоритет: override → label → извлечение из имени
+    // Priority: override → label → extraction from name
     const serviceName = serviceNameOverride 
       || container.Labels?.['com.docker.compose.service']
       || this.extractServiceName(fullName, projectName);
@@ -324,7 +324,7 @@ export class ContainerManager {
   }
 
   /**
-   * Извлекает порты из Docker container info
+   * Extract ports from Docker container info
    */
   private extractPorts(ports: any[]): string[] {
     if (!ports || ports.length === 0) return [];
@@ -341,22 +341,22 @@ export class ContainerManager {
   }
 
   /**
-   * Извлекает имя сервиса из имени контейнера
+   * Extract service name from container name
    * project_service_1 → service
    * project-service-1 → service
    */
   private extractServiceName(containerName: string, projectName: string): string {
-    // Убираем project name из начала
+    // Remove project name from beginning
     let name = containerName;
     
     if (name.startsWith(projectName)) {
       name = name.slice(projectName.length);
     }
 
-    // Убираем разделители и номер в конце
+    // Remove separators and number at the end
     // project_service_1 → _service_1 → service_1 → service
     name = name.replace(/^[_-]/, '').replace(/[_-]\d+$/, '');
 
-    return name || containerName; // Fallback на полное имя
+    return name || containerName; // Fallback to full name
   }
 }

@@ -1,7 +1,7 @@
 /**
  * Test setup
- * Глобальная настройка для всех тестов
+ * Global configuration for all tests
  */
 
-// Можно добавить глобальные настройки, моки и т.д.
+// Can add global settings, mocks, etc.
 

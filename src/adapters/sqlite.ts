@@ -1,6 +1,6 @@
 /**
  * SQLite Adapter
- * Реализация DatabaseAdapter для SQLite
+ * DatabaseAdapter implementation for SQLite
  */
 
 import type { DatabaseAdapter } from './database-adapter.js';
@@ -30,10 +30,10 @@ export class SQLiteAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Выполнить SQL query или мета-команду
+   * Execute SQL query or meta-command
    */
   async query(service: string, query: string, options?: QueryOptions): Promise<string> {
-    // Валидация SQL (если включена, только для SQL запросов, не для мета-команд)
+    // SQL validation (if enabled, only for SQL queries, not for meta-commands)
     if (!query.startsWith('.')) {
       sqlValidator.validate(query);
     }
@@ -48,14 +48,14 @@ export class SQLiteAdapter implements DatabaseAdapter {
     const conn = this.getConnectionInfo(serviceConfig, env);
     const dbPath = conn.database;
 
-    // Строим команду sqlite3
+    // Build sqlite3 command
     let cmd: string[];
 
     if (query.startsWith('.')) {
-      // Мета-команда (например, .tables, .schema)
+      // Meta-command (e.g., .tables, .schema)
       cmd = ['sqlite3', dbPath, query];
     } else {
-      // SQL запрос
+      // SQL query
       cmd = ['sqlite3', dbPath, query];
     }
 
@@ -67,7 +67,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Создать backup
+   * Create backup
    */
   async backup(service: string, options: BackupOptions): Promise<string> {
     const project = await this.projectDiscovery.findProject();
@@ -82,7 +82,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
     const output = options.output || `/backups/sqlite-backup-${Date.now()}.db`;
 
-    // Используем .backup команду (безопасно, работает даже если БД используется)
+    // Use .backup command (safe, works even if database is in use)
     logger.info(`Creating SQLite backup: ${output}`);
     const cmd = ['sqlite3', dbPath, `.backup ${output}`];
 
@@ -92,7 +92,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Восстановить из backup
+   * Restore from backup
    */
   async restore(
     service: string,
@@ -111,7 +111,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
     logger.info(`Restoring SQLite from backup: ${backupPath}`);
 
-    // Простое копирование файла (SQLite - это файловая БД)
+    // Simple file copy (SQLite is a file-based database)
     const cmd = ['cp', backupPath, dbPath];
 
     await this.containerManager.exec(service, project.name, cmd);
@@ -120,7 +120,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Получить статус БД
+   * Get database status
    */
   async status(service: string): Promise<DBStatus> {
     const project = await this.projectDiscovery.findProject();
@@ -133,11 +133,11 @@ export class SQLiteAdapter implements DatabaseAdapter {
     const conn = this.getConnectionInfo(serviceConfig, env);
     const dbPath = conn.database;
 
-    // Получаем версию SQLite
+    // Get SQLite version
     const versionOutput = await this.query(service, 'SELECT sqlite_version();');
     const version = versionOutput.trim();
 
-    // Получаем количество таблиц
+    // Get table count
     const tablesOutput = await this.query(
       service,
       "SELECT COUNT(*) FROM sqlite_master WHERE type='table';"
@@ -156,7 +156,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Получить connection info из environment
+   * Get connection info from environment
    */
   getConnectionInfo(service: ServiceConfig, env: Record<string, string>): ConnectionInfo {
     return {

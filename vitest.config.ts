@@ -13,14 +13,14 @@ export default defineConfig({
         'tests/',
         '**/*.d.ts',
         '**/*.config.*',
-        '**/index.ts', // Entry point, сложно тестировать
+        '**/index.ts', // Entry point, difficult to test
       ],
     },
     include: ['tests/**/*.test.ts'],
     exclude: ['node_modules', 'dist'],
   },
   resolve: {
-    // Для правильной работы с ESM и TypeScript
+    // For proper ESM and TypeScript support
     extensions: ['.ts', '.js'],
   },
 });

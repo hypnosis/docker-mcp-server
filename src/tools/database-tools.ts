@@ -1,6 +1,6 @@
 /**
  * Database Tools
- * MCP Tools для работы с базами данных
+ * MCP Tools for working with databases
  */
 
 import {
@@ -19,7 +19,7 @@ export class DatabaseTools {
   }
 
   /**
-   * Регистрация всех database tools
+   * Register all database tools
    */
   getTools(): Tool[] {
     return [
@@ -143,7 +143,7 @@ export class DatabaseTools {
   }
 
   /**
-   * Обработка вызова tool
+   * Handle tool call
    */
   async handleCall(request: CallToolRequest): Promise<any> {
     const { name, arguments: args } = request.params;
@@ -191,7 +191,7 @@ export class DatabaseTools {
       throw new Error(`Service '${args.service}' not found in project`);
     }
 
-    // Получаем адаптер по типу БД
+    // Get adapter by database type
     const adapter = adapterRegistry.get(serviceConfig.type);
 
     const result = await adapter.query(args.service, args.query, {

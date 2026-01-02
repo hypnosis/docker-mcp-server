@@ -1,6 +1,6 @@
 /**
  * Universal Executor Tool
- * Выполнение любых команд в контейнере через docker exec
+ * Execute any commands in container via docker exec
  */
 
 import { Tool, CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
@@ -67,7 +67,7 @@ export class ExecutorTool {
 
       const project = await this.projectDiscovery.findProject();
       
-      // Парсим command string в array
+      // Parse command string to array
       const commandParts = this.parseCommand(args.command);
       
       logger.info(`Executing in ${args.service}: ${args.command}`);
@@ -108,12 +108,12 @@ export class ExecutorTool {
   }
 
   /**
-   * Простой парсинг command string → array
-   * TODO: улучшить для quoted strings в будущем
+   * Simple parsing of command string → array
+   * TODO: improve for quoted strings in the future
    */
   private parseCommand(command: string): string[] {
-    // Простой split по пробелам
-    // В будущем можно добавить поддержку quoted strings
+    // Simple split by spaces
+    // In the future, can add support for quoted strings
     return command.split(' ').filter((s) => s.length > 0);
   }
 }

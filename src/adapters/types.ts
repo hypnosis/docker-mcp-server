@@ -1,11 +1,11 @@
 /**
- * Types для Database Adapters
+ * Types for Database Adapters
  */
 
 import type { ServiceConfig } from '../discovery/types.js';
 
 /**
- * Опции для query
+ * Options for query
  */
 export interface QueryOptions {
   database?: string;
@@ -14,7 +14,7 @@ export interface QueryOptions {
 }
 
 /**
- * Опции для backup
+ * Options for backup
  */
 export interface BackupOptions {
   output?: string;
@@ -24,7 +24,7 @@ export interface BackupOptions {
 }
 
 /**
- * Опции для restore
+ * Options for restore
  */
 export interface RestoreOptions {
   database?: string;
@@ -34,7 +34,7 @@ export interface RestoreOptions {
 }
 
 /**
- * Статус БД
+ * Database status
  */
 export interface DBStatus {
   type: string;
@@ -48,7 +48,7 @@ export interface DBStatus {
 }
 
 /**
- * Connection Info для БД
+ * Connection Info for database
  */
 export interface ConnectionInfo {
   host: string;

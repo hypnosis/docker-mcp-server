@@ -1,6 +1,6 @@
 /**
  * Database Adapter Interface
- * Интерфейс для работы с разными типами БД
+ * Interface for working with different database types
  */
 
 import type { ServiceConfig } from '../discovery/types.js';
@@ -13,12 +13,12 @@ import type {
 } from './types.js';
 
 /**
- * Интерфейс для Database Adapters
- * Все адаптеры должны реализовать этот интерфейс
+ * Interface for Database Adapters
+ * All adapters must implement this interface
  */
 export interface DatabaseAdapter {
   /**
-   * Выполнить query или команду
+   * Execute query or command
    */
   query(
     service: string,
@@ -27,12 +27,12 @@ export interface DatabaseAdapter {
   ): Promise<string>;
 
   /**
-   * Создать backup
+   * Create backup
    */
   backup(service: string, options: BackupOptions): Promise<string>;
 
   /**
-   * Восстановить из backup
+   * Restore from backup
    */
   restore(
     service: string,
@@ -41,12 +41,12 @@ export interface DatabaseAdapter {
   ): Promise<void>;
 
   /**
-   * Получить статус БД
+   * Get database status
    */
   status(service: string): Promise<DBStatus>;
 
   /**
-   * Получить connection info из environment
+   * Get connection info from environment
    */
   getConnectionInfo(
     service: ServiceConfig,

@@ -1,6 +1,6 @@
 /**
  * MCP Health Tool
- * Самодиагностика MCP сервера
+ * MCP server self-diagnostics
  */
 
 import {
@@ -15,7 +15,7 @@ import { logger } from '../utils/logger.js';
 
 export class MCPHealthTool {
   /**
-   * Регистрация health tool
+   * Register health tool
    */
   getTool(): Tool {
     return {
@@ -29,7 +29,7 @@ export class MCPHealthTool {
   }
 
   /**
-   * Обработка вызова tool
+   * Handle tool call
    */
   async handleCall(request: CallToolRequest) {
     try {
@@ -58,7 +58,7 @@ export class MCPHealthTool {
   }
 
   /**
-   * Выполнить проверки здоровья
+   * Perform health checks
    */
   async check(): Promise<{
     status: 'healthy' | 'degraded' | 'unhealthy';
@@ -144,7 +144,7 @@ export class MCPHealthTool {
     checks.cache = {
       status: 'ok' as const,
       size: projectConfigCache.size(),
-      ttl: 60, // seconds (hardcoded, так как в Cache не экспортирован)
+      ttl: 60, // seconds (hardcoded, as not exported in Cache)
     };
 
     // 5. Memory Usage

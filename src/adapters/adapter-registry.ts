@@ -1,6 +1,6 @@
 /**
  * Adapter Registry
- * Регистрация и получение Database Adapters по типу БД
+ * Registration and retrieval of Database Adapters by database type
  */
 
 import type { DatabaseAdapter } from './database-adapter.js';
@@ -10,7 +10,7 @@ export class AdapterRegistry {
   private adapters = new Map<string, DatabaseAdapter>();
 
   /**
-   * Регистрировать адаптер
+   * Register adapter
    */
   register(type: string, adapter: DatabaseAdapter): void {
     const normalizedType = type.toLowerCase();
@@ -19,7 +19,7 @@ export class AdapterRegistry {
   }
 
   /**
-   * Получить адаптер по типу
+   * Get adapter by type
    */
   get(serviceType: string): DatabaseAdapter {
     const type = serviceType.toLowerCase();
@@ -38,14 +38,14 @@ export class AdapterRegistry {
   }
 
   /**
-   * Проверить наличие адаптера
+   * Check if adapter exists
    */
   has(serviceType: string): boolean {
     return this.adapters.has(serviceType.toLowerCase());
   }
 
   /**
-   * Получить список всех зарегистрированных типов
+   * Get list of all registered types
    */
   getRegisteredTypes(): string[] {
     return Array.from(this.adapters.keys());

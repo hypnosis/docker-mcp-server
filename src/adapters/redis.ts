@@ -1,6 +1,6 @@
 /**
  * Redis Adapter
- * Реализация DatabaseAdapter для Redis
+ * DatabaseAdapter implementation for Redis
  */
 
 import type { DatabaseAdapter } from './database-adapter.js';
@@ -29,7 +29,7 @@ export class RedisAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Выполнить Redis команду
+   * Execute Redis command
    */
   async query(service: string, query: string, options?: QueryOptions): Promise<string> {
     const project = await this.projectDiscovery.findProject();
@@ -41,15 +41,15 @@ export class RedisAdapter implements DatabaseAdapter {
     const env = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
     const conn = this.getConnectionInfo(serviceConfig, env);
 
-    // Строим команду redis-cli
+    // Build redis-cli command
     let cmd = ['redis-cli'];
 
-    // Пароль (если нужен)
+    // Password (if needed)
     if (conn.password) {
       cmd.push('-a', conn.password);
     }
 
-    // Команда Redis
+    // Redis command
     const commandParts = query.trim().split(/\s+/);
     cmd.push(...commandParts);
 
@@ -61,7 +61,7 @@ export class RedisAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Создать backup (RDB snapshot)
+   * Create backup (RDB snapshot)
    */
   async backup(service: string, options: BackupOptions): Promise<string> {
     const project = await this.projectDiscovery.findProject();
@@ -75,7 +75,7 @@ export class RedisAdapter implements DatabaseAdapter {
 
     const output = options.output || `/backups/redis-backup-${Date.now()}.rdb`;
 
-    // 1. Создать snapshot (BGSAVE - фоновый, не блокирует)
+    // 1. Create snapshot (BGSAVE - background, non-blocking)
     logger.info('Creating Redis snapshot (BGSAVE)...');
     let cmd = ['redis-cli'];
     if (conn.password) {
@@ -85,10 +85,10 @@ export class RedisAdapter implements DatabaseAdapter {
 
     await this.containerManager.exec(service, project.name, cmd);
 
-    // 2. Ждем завершения BGSAVE
+    // 2. Wait for BGSAVE to complete
     await this.waitForBgsave(service, conn.password);
 
-    // 3. Копируем dump.rdb в output (обычно /data/dump.rdb в контейнере)
+    // 3. Copy dump.rdb to output (usually /data/dump.rdb in container)
     logger.info(`Copying dump.rdb to ${output}...`);
     const copyCmd = ['cp', '/data/dump.rdb', output];
     await this.containerManager.exec(service, project.name, copyCmd);
@@ -97,7 +97,7 @@ export class RedisAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Восстановить из backup
+   * Restore from backup
    */
   async restore(
     service: string,
@@ -108,16 +108,16 @@ export class RedisAdapter implements DatabaseAdapter {
 
     logger.info(`Restoring Redis from backup: ${backupPath}`);
 
-    // 1. Остановить контейнер
+    // 1. Stop container
     logger.info('Stopping Redis container...');
     await this.containerManager.stopContainer(service, project.name);
 
-    // 2. Копировать backup файл в место где Redis его найдет
+    // 2. Copy backup file to location where Redis will find it
     logger.info('Copying backup file...');
     const copyCmd = ['cp', backupPath, '/data/dump.rdb'];
     await this.containerManager.exec(service, project.name, copyCmd);
 
-    // 3. Запустить контейнер (Redis автоматически загрузит dump.rdb)
+    // 3. Start container (Redis will automatically load dump.rdb)
     logger.info('Starting Redis container...');
     await this.containerManager.startContainer(service, project.name);
 
@@ -125,7 +125,7 @@ export class RedisAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Получить статус БД
+   * Get database status
    */
   async status(service: string): Promise<DBStatus> {
     const project = await this.projectDiscovery.findProject();
@@ -137,7 +137,7 @@ export class RedisAdapter implements DatabaseAdapter {
     const env = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
     const conn = this.getConnectionInfo(serviceConfig, env);
 
-    // Получаем INFO
+    // Get INFO
     const infoOutput = await this.query(service, 'INFO');
     const info = this.parseRedisInfo(infoOutput);
 
@@ -155,7 +155,7 @@ export class RedisAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Получить connection info из environment
+   * Get connection info from environment
    */
   getConnectionInfo(service: ServiceConfig, env: Record<string, string>): ConnectionInfo {
     return {
@@ -168,12 +168,12 @@ export class RedisAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Ждать завершения BGSAVE
+   * Wait for BGSAVE to complete
    */
   private async waitForBgsave(service: string, password?: string): Promise<void> {
     const project = await this.projectDiscovery.findProject();
     let attempts = 0;
-    const maxAttempts = 30; // 30 секунд максимум
+    const maxAttempts = 30; // 30 seconds maximum
 
     while (attempts < maxAttempts) {
       let cmd = ['redis-cli'];
@@ -185,7 +185,7 @@ export class RedisAdapter implements DatabaseAdapter {
       const output = await this.containerManager.exec(service, project.name, cmd);
       const lastsave = parseInt(output.trim());
 
-      // Проверяем что BGSAVE завершен
+      // Check that BGSAVE is complete
       cmd = ['redis-cli'];
       if (password) {
         cmd.push('-a', password);
@@ -200,7 +200,7 @@ export class RedisAdapter implements DatabaseAdapter {
         return;
       }
 
-      // Ждем 1 секунду перед следующей проверкой
+      // Wait 1 second before next check
       await new Promise((resolve) => setTimeout(resolve, 1000));
       attempts++;
     }
@@ -209,7 +209,7 @@ export class RedisAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Парсит Redis INFO output
+   * Parse Redis INFO output
    */
   private parseRedisInfo(info: string): Record<string, any> {
     const result: Record<string, any> = {};
@@ -219,7 +219,7 @@ export class RedisAdapter implements DatabaseAdapter {
         const [key, ...valueParts] = line.split(':');
         const value = valueParts.join(':').trim();
 
-        // Специальная обработка для db0 (keys)
+        // Special handling for db0 (keys)
         if (key.startsWith('db0')) {
           if (!result.db0) {
             result.db0 = {};
@@ -238,7 +238,7 @@ export class RedisAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Форматирует uptime в человекочитаемый формат
+   * Format uptime in human-readable format
    */
   private formatUptime(seconds: number): string {
     const days = Math.floor(seconds / 86400);

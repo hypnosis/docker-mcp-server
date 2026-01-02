@@ -1,6 +1,6 @@
 /**
  * Container Tools
- * MCP Tools для управления Docker контейнерами
+ * MCP Tools for Docker container management
  */
 
 import {
@@ -24,7 +24,7 @@ export class ContainerTools {
   }
 
   /**
-   * Регистрация всех container tools
+   * Register all container tools
    */
   getTools(): Tool[] {
     return [
@@ -194,7 +194,7 @@ export class ContainerTools {
   }
 
   /**
-   * Обработка вызова tool
+   * Handle tool call
    */
   async handleCall(request: CallToolRequest): Promise<any> {
     const { name, arguments: args } = request.params;
@@ -337,7 +337,7 @@ export class ContainerTools {
       project.projectDir
     );
 
-    // Если это stream (follow mode), собираем данные из stream
+    // If this is a stream (follow mode), collect data from stream
     if (args?.follow && typeof logs !== 'string') {
       const stream = logs as NodeJS.ReadableStream;
       const chunks: Buffer[] = [];
@@ -365,7 +365,7 @@ export class ContainerTools {
       });
     }
 
-    // Обычный режим (string)
+    // Normal mode (string)
     return {
       content: [
         {
@@ -412,11 +412,11 @@ export class ContainerTools {
   }
 
   /**
-   * Helper: получить project config (auto-detect или explicit)
+   * Helper: get project config (auto-detect or explicit)
    */
   private async getProject(explicitName?: string) {
-    // Пока используем auto-detect всегда
-    // В будущем можно добавить кеширование по explicit name
+    // Currently always use auto-detect
+    // In the future, can add caching by explicit name
     return this.projectDiscovery.findProject();
   }
 }

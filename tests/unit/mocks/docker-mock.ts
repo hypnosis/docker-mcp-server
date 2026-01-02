@@ -1,6 +1,6 @@
 /**
- * Mock для Dockerode
- * Используется в unit тестах для изоляции от реального Docker
+ * Mock for Dockerode
+ * Used in unit tests to isolate from real Docker
  */
 
 import type Docker from 'dockerode';
@@ -19,13 +19,13 @@ export interface MockContainer {
 }
 
 /**
- * Создать mock Docker instance
+ * Create mock Docker instance
  */
 export function createMockDocker(containers: MockContainer[] = []): Docker {
   const mockContainers = new Map<string, MockContainer>();
   const containerInstances = new Map<string, Docker.Container>();
   
-  // Преобразуем массив в Map для удобного поиска
+  // Convert array to Map for easy lookup
   containers.forEach(container => {
     mockContainers.set(container.id, container);
   });
@@ -34,7 +34,7 @@ export function createMockDocker(containers: MockContainer[] = []): Docker {
     ping: vi.fn().mockResolvedValue(undefined),
     
     listContainers: vi.fn().mockImplementation(async (options?: Docker.ContainerListOptions) => {
-      // Преобразуем mock containers в формат Docker API
+      // Convert mock containers to Docker API format
       return containers.map(container => ({
         Id: container.id,
         Names: [container.name.startsWith('/') ? container.name : `/${container.name}`],
@@ -52,7 +52,7 @@ export function createMockDocker(containers: MockContainer[] = []): Docker {
         throw new Error(`Container ${id} not found`);
       }
       
-      // Кешируем instance чтобы возвращать один и тот же для одного ID
+      // Cache instance to return the same one for the same ID
       if (!containerInstances.has(id)) {
         containerInstances.set(id, createMockContainer(container));
       }
@@ -65,7 +65,7 @@ export function createMockDocker(containers: MockContainer[] = []): Docker {
 }
 
 /**
- * Создать mock Container instance
+ * Create mock Container instance
  */
 function createMockContainer(mockContainer: MockContainer): Docker.Container {
   const defaultInspectData = {
@@ -96,7 +96,7 @@ function createMockContainer(mockContainer: MockContainer): Docker.Container {
       const logs = mockContainer.logsData || Buffer.from('test log line\n');
       
       if (options?.follow) {
-        // Возвращаем mock stream для follow mode
+        // Return mock stream for follow mode
         return new ReadableStream({
           start(controller) {
             controller.enqueue(logs);
@@ -126,7 +126,7 @@ function createMockContainer(mockContainer: MockContainer): Docker.Container {
 }
 
 /**
- * Helper для создания mock container данных
+ * Helper for creating mock container data
  */
 export function createMockContainerData(overrides: Partial<MockContainer> = {}): MockContainer {
   return {
@@ -146,7 +146,7 @@ export function createMockContainerData(overrides: Partial<MockContainer> = {}):
 }
 
 /**
- * Helper для создания mock container с healthcheck
+ * Helper for creating mock container with healthcheck
  */
 export function createMockContainerWithHealth(
   status: 'healthy' | 'unhealthy' | 'starting',

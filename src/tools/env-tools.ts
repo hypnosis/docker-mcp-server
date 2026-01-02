@@ -1,6 +1,6 @@
 /**
  * Environment Tools
- * MCP Tools для работы с environment variables и конфигурацией
+ * MCP Tools for working with environment variables and configuration
  */
 
 import {
@@ -29,7 +29,7 @@ export class EnvTools {
   }
 
   /**
-   * Регистрация всех environment tools
+   * Register all environment tools
    */
   getTools(): Tool[] {
     return [
@@ -104,7 +104,7 @@ export class EnvTools {
   }
 
   /**
-   * Обработка вызовов tools
+   * Handle tool calls
    */
   async handleCall(request: CallToolRequest) {
     const { name, arguments: args } = request.params;
@@ -138,7 +138,7 @@ export class EnvTools {
   }
 
   /**
-   * Получить проект (helper)
+   * Get project (helper)
    */
   private async getProject(projectName?: string) {
     return await this.projectDiscovery.findProject(
@@ -152,7 +152,7 @@ export class EnvTools {
   private async handleEnvList(args: any) {
     const project = await this.getProject(args?.project);
     
-    // Если указан service, загружаем env для конкретного сервиса
+    // If service is specified, load env for specific service
     let env: Record<string, string>;
     if (args?.service) {
       const serviceConfig = project.services[args.service];
@@ -164,15 +164,15 @@ export class EnvTools {
       }
       env = this.envManager.loadEnv(project.projectDir, args.service, serviceConfig);
     } else {
-      // Загружаем глобальный env (без service)
+      // Load global env (without service)
       env = this.envManager.loadEnv(project.projectDir);
     }
 
-    // Маскировать секреты (по умолчанию true)
+    // Mask secrets (default: true)
     const shouldMask = args?.maskSecrets !== false;
     const result = shouldMask ? this.envManager.maskSecrets(env) : env;
 
-    // Подсчитываем количество замаскированных секретов
+    // Count number of masked secrets
     let maskedCount = 0;
     if (shouldMask) {
       for (const [key, value] of Object.entries(result)) {
@@ -182,7 +182,7 @@ export class EnvTools {
       }
     }
 
-    // Форматируем результат
+    // Format result
     const output = Object.entries(result)
       .map(([key, value]) => `${key}=${value}`)
       .join('\n');

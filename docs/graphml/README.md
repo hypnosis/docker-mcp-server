@@ -1,52 +1,52 @@
-# GraphML Диаграммы
+# GraphML Diagrams
 
-> GraphML файлы для визуализации архитектуры системы
+> GraphML files for system architecture visualization
 
-## 📊 Доступные Диаграммы
+## 📊 Available Diagrams
 
 ### architecture.graphml
 
-Диаграмма архитектуры Docker MCP Server, показывающая:
-- Все компоненты системы
-- Связи между модулями
-- Потоки данных
-- Типы зависимостей
+Architecture diagram of Docker MCP Server showing:
+- All system components
+- Connections between modules
+- Data flows
+- Dependency types
 
-## 🛠️ Просмотр Диаграмм
+## 🛠️ Viewing Diagrams
 
-### Вариант 1: yEd Graph Editor (Рекомендуется)
+### Option 1: yEd Graph Editor (Recommended)
 
-1. Скачать yEd: https://www.yworks.com/products/yed
-2. Открыть файл `architecture.graphml`
-3. Выбрать layout: `Hierarchical` или `Organic`
-4. Экспортировать в PNG/PDF
+1. Download yEd: https://www.yworks.com/products/yed
+2. Open file `architecture.graphml`
+3. Select layout: `Hierarchical` or `Organic`
+4. Export to PNG/PDF
 
-### Вариант 2: Graphviz (если поддерживает GraphML)
+### Option 2: Graphviz (if supports GraphML)
 
 ```bash
-# Установить graphviz
+# Install graphviz
 brew install graphviz  # Mac
 sudo apt-get install graphviz  # Linux
 
-# Конвертировать (если поддерживается)
+# Convert (if supported)
 dot -Tpng architecture.graphml -o architecture.png
 ```
 
-### Вариант 3: Онлайн редакторы
+### Option 3: Online Editors
 
 - **GraphML Editor:** https://graphml.graphdrawing.org/editor.html
-- **draw.io:** Импорт GraphML (экспериментально)
+- **draw.io:** Import GraphML (experimental)
 - **yEd Live:** https://www.yworks.com/yed-live/
 
-### Вариант 4: VS Code Extension
+### Option 4: VS Code Extension
 
-1. Установить расширение "GraphML Preview"
-2. Открыть `.graphml` файл
-3. Использовать Preview панель
+1. Install "GraphML Preview" extension
+2. Open `.graphml` file
+3. Use Preview panel
 
-## 📝 Структура Диаграммы
+## 📝 Diagram Structure
 
-### Узлы (Nodes)
+### Nodes
 
 - **Client Layer:** MCP Client (Cursor/Claude)
 - **Server Layer:** MCP Server (index.ts)
@@ -59,35 +59,34 @@ dot -Tpng architecture.graphml -o architecture.png
 - **External:** Docker Engine
 - **Utilities:** Logger, Cache
 
-### Рёбра (Edges)
+### Edges
 
-Типы связей:
+Connection types:
 - **protocol:** MCP Protocol
-- **registration:** Регистрация tools
-- **dependency:** Использование модуля
-- **management:** Управление адаптерами
-- **execution:** Выполнение команд
+- **registration:** Tool registration
+- **dependency:** Module usage
+- **management:** Adapter management
+- **execution:** Command execution
 - **api:** Docker API
-- **logging:** Логирование
-- **optional:** Опциональная зависимость
+- **logging:** Logging
+- **optional:** Optional dependency
 
-## 🔄 Обновление Диаграммы
+## 🔄 Updating Diagram
 
-При изменении архитектуры:
+When changing architecture:
 
-1. Открыть `architecture.graphml` в yEd
-2. Добавить/удалить узлы/рёбра
-3. Обновить стили при необходимости
-4. Сохранить файл
-5. Экспортировать в PNG для документации (опционально)
+1. Open `architecture.graphml` in yEd
+2. Add/remove nodes/edges
+3. Update styles if needed
+4. Save file
+5. Export to PNG for documentation (optional)
 
-## 📚 Связанные Документы
+## 📚 Related Documents
 
-- [Developer Architecture](../DEVELOPER_ARCHITECTURE.md) — Детальная архитектура
-- [Architecture](../ARCHITECTURE.md) — Общая архитектура
-- [Sprints](../sprints/SPRINTS.md) — План разработки
+- [Developer Architecture](../DEVELOPER_ARCHITECTURE.md) — Detailed architecture
+- [Architecture](../ARCHITECTURE.md) — General architecture
+- [Sprints](../sprints/SPRINTS.md) — Development plan
 
 ---
 
-**Обновлено:** 2025-01-01 (Sprint 3)
-
+**Updated:** 2025-01-01 (Sprint 3)

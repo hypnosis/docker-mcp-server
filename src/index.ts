@@ -23,16 +23,16 @@ import { RedisAdapter } from './adapters/redis.js';
 import { SQLiteAdapter } from './adapters/sqlite.js';
 
 async function main() {
-  // Если есть аргументы командной строки, используем CLI режим
+  // If command line arguments exist, use CLI mode
   if (process.argv.length > 2) {
-    // CLI режим обрабатывается в cli.ts
+    // CLI mode is handled in cli.ts
     console.error('Use "docker-mcp-server-cli" for CLI mode or run without arguments for MCP mode');
     process.exit(1);
   }
 
   logger.info('Starting Docker MCP Server v1.0.0');
 
-  // Проверка Docker
+  // Docker check
   try {
     const docker = getDockerClient();
     await docker.ping();
@@ -41,7 +41,7 @@ async function main() {
     process.exit(1);
   }
 
-  // Регистрация Database Adapters
+  // Register Database Adapters
   adapterRegistry.register('postgresql', new PostgreSQLAdapter());
   adapterRegistry.register('postgres', new PostgreSQLAdapter()); // alias
   adapterRegistry.register('redis', new RedisAdapter());
@@ -49,14 +49,14 @@ async function main() {
   adapterRegistry.register('sqlite3', new SQLiteAdapter()); // alias
   logger.info('Database adapters registered: PostgreSQL, Redis, SQLite');
 
-  // Инициализация tools
+  // Initialize tools
   const containerTools = new ContainerTools();
   const executorTool = new ExecutorTool();
   const databaseTools = new DatabaseTools();
   const envTools = new EnvTools();
   const mcpHealthTool = new MCPHealthTool();
 
-  // Создание MCP Server
+  // Create MCP Server
   const server = new Server(
     {
       name: 'docker-mcp-server',
@@ -69,7 +69,7 @@ async function main() {
     }
   );
 
-  // Регистрация tools
+  // Register tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     logger.debug('ListTools request received');
     
@@ -84,7 +84,7 @@ async function main() {
     };
   });
 
-  // Обработка вызовов
+  // Handle tool calls
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     logger.debug('CallTool request:', request.params.name);
 
@@ -118,7 +118,7 @@ async function main() {
     throw new Error(`Unknown tool: ${toolName}`);
   });
 
-  // Подключение transport
+  // Connect transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
 

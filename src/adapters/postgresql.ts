@@ -1,6 +1,6 @@
 /**
  * PostgreSQL Adapter
- * Реализация DatabaseAdapter для PostgreSQL
+ * DatabaseAdapter implementation for PostgreSQL
  */
 
 import type { DatabaseAdapter } from './database-adapter.js';
@@ -30,10 +30,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Выполнить SQL query
+   * Execute SQL query
    */
   async query(service: string, query: string, options?: QueryOptions): Promise<string> {
-    // Валидация SQL (если включена)
+    // SQL validation (if enabled)
     sqlValidator.validate(query);
 
     const project = await this.projectDiscovery.findProject();
@@ -48,11 +48,11 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     const db = options?.database || conn.database;
     const user = options?.user || conn.user;
 
-    // Строим команду psql
+    // Build psql command
     const format = options?.format || 'table';
     let cmd = ['psql', '-U', user, '-d', db];
 
-    // Формат вывода
+    // Output format
     if (format === 'json') {
       cmd.push('--json');
     } else if (format === 'csv') {
@@ -62,7 +62,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     // SQL query
     cmd.push('-c', query);
 
-    // Пароль через PGPASSWORD env var
+    // Password via PGPASSWORD env var
     const envVars = conn.password ? [`PGPASSWORD=${conn.password}`] : [];
 
     logger.debug(`Executing PostgreSQL query in ${service}: ${query}`);
@@ -75,7 +75,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Создать backup
+   * Create backup
    */
   async backup(service: string, options: BackupOptions): Promise<string> {
     const project = await this.projectDiscovery.findProject();
@@ -90,10 +90,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     const format = options.format || 'custom';
     const output = options.output || `/backups/postgres-backup-${Date.now()}.dump`;
 
-    // Строим команду pg_dump
+    // Build pg_dump command
     let cmd = ['pg_dump', '-U', conn.user, '-d', conn.database];
 
-    // Формат backup
+    // Backup format
     if (format === 'custom') {
       cmd.push('-Fc'); // Custom format (compressed)
     } else if (format === 'tar') {
@@ -101,9 +101,9 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     } else if (format === 'directory') {
       cmd.push('-Fd'); // Directory format
     }
-    // 'sql' format - по умолчанию (plain SQL)
+    // 'sql' format - default (plain SQL)
 
-    // Backup конкретных таблиц
+    // Backup specific tables
     if (options.tables && options.tables.length > 0) {
       for (const table of options.tables) {
         cmd.push('-t', table);
@@ -113,7 +113,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     // Output file
     cmd.push('-f', output);
 
-    // Пароль через PGPASSWORD
+    // Password via PGPASSWORD
     const envVars = conn.password ? [`PGPASSWORD=${conn.password}`] : [];
 
     logger.info(`Creating PostgreSQL backup: ${output}`);
@@ -126,7 +126,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Восстановить из backup
+   * Restore from backup
    */
   async restore(
     service: string,
@@ -144,7 +144,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
 
     const db = options?.database || conn.database;
 
-    // Определяем формат backup по расширению
+    // Determine backup format by extension
     const isCustomFormat = backupPath.endsWith('.dump') || backupPath.endsWith('.backup');
 
     let cmd: string[];
@@ -168,7 +168,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
       cmd = ['psql', '-U', conn.user, '-d', db, '-f', backupPath];
     }
 
-    // Пароль через PGPASSWORD
+    // Password via PGPASSWORD
     const envVars = conn.password ? [`PGPASSWORD=${conn.password}`] : [];
 
     logger.info(`Restoring PostgreSQL from backup: ${backupPath}`);
@@ -179,7 +179,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Получить статус БД
+   * Get database status
    */
   async status(service: string): Promise<DBStatus> {
     const project = await this.projectDiscovery.findProject();
@@ -191,25 +191,25 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     const env = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
     const conn = this.getConnectionInfo(serviceConfig, env);
 
-    // Получаем версию
+    // Get version
     const versionOutput = await this.query(service, 'SELECT version();');
     const version = this.parseVersion(versionOutput);
 
-    // Получаем размер БД
+    // Get database size
     const sizeOutput = await this.query(
       service,
       "SELECT pg_size_pretty(pg_database_size(current_database())) as size;"
     );
     const size = this.parseSingleValue(sizeOutput);
 
-    // Получаем количество подключений
+    // Get connection count
     const connectionsOutput = await this.query(
       service,
       "SELECT count(*) as connections FROM pg_stat_activity WHERE datname = current_database();"
     );
     const connections = parseInt(this.parseSingleValue(connectionsOutput) || '0');
 
-    // Получаем uptime
+    // Get uptime
     const uptimeOutput = await this.query(
       service,
       "SELECT date_trunc('second', current_timestamp - pg_postmaster_start_time()) as uptime;"
@@ -227,7 +227,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Получить connection info из environment
+   * Get connection info from environment
    */
   getConnectionInfo(service: ServiceConfig, env: Record<string, string>): ConnectionInfo {
     return {
@@ -240,7 +240,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Парсит версию PostgreSQL из output
+   * Parse PostgreSQL version from output
    */
   private parseVersion(versionOutput: string): string {
     const match = versionOutput.match(/PostgreSQL\s+(\d+\.\d+)/i);
@@ -248,17 +248,17 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Парсит одно значение из SQL output (первая строка, первый столбец)
+   * Parse single value from SQL output (first row, first column)
    */
   private parseSingleValue(output: string): string {
-    // Простой парсинг: берем первую строку после заголовка
+    // Simple parsing: take first line after header
     const lines = output.split('\n').filter((line) => line.trim().length > 0);
     if (lines.length < 2) {
       return '';
     }
-    // Пропускаем заголовок, берем первую строку данных
+    // Skip header, take first data row
     const dataLine = lines[1];
-    // Убираем лишние пробелы
+    // Remove extra spaces
     return dataLine.trim();
   }
 }

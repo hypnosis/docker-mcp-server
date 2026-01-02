@@ -1,19 +1,19 @@
-# Архитектура для Разработчиков
+# Developer Architecture
 
-> Детальная техническая архитектура Docker MCP Server для разработчиков
+> Detailed technical architecture of Docker MCP Server for developers
 
-**Версия:** 1.0  
-**Обновлено:** 2025-01-XX
-
----
-
-## 🎯 Обзор
-
-Этот документ описывает внутреннюю архитектуру проекта для разработчиков, которые будут реализовывать или расширять функциональность.
+**Version:** 1.0  
+**Updated:** 2025-01-XX
 
 ---
 
-## 📦 Технологический Стек
+## 🎯 Overview
+
+This document describes the internal architecture of the project for developers who will implement or extend functionality.
+
+---
+
+## 📦 Technology Stack
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -31,14 +31,14 @@
 
 ---
 
-## 🏗️ Архитектурные Слои
+## 🏗️ Architecture Layers
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    MCP SERVER LAYER                         │
 │  (src/index.ts)                                             │
-│  • Регистрация tools                                        │
-│  • JSON-RPC обработка                                       │
+│  • Tool registration                                        │
+│  • JSON-RPC handling                                       │
 │  • STDIO transport                                          │
 └───────────────────────┬─────────────────────────────────────┘
                         │
@@ -46,17 +46,17 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    PROJECT DISCOVERY                        │
 │  (src/discovery/)                                           │
-│  • Поиск docker-compose.yml                                │
-│  • Multi-compose поддержка                                  │
-│  • Парсинг YAML                                             │
-│  • Определение типов сервисов                               │
+│  • Finding docker-compose.yml                              │
+│  • Multi-compose support                                   │
+│  • YAML parsing                                            │
+│  • Service type detection                                  │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    DOCKERODE CLIENT                         │
 │  (src/utils/docker-client.ts)                               │
-│  • Инициализация Docker API                                 │
+│  • Docker API initialization                               │
 │  • Connection management                                    │
 └───────────────────────┬─────────────────────────────────────┘
                         │
@@ -74,17 +74,17 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    SECURITY LAYER                           │
 │  (src/security/)                                            │
-│  • Маскирование секретов                                   │
-│  • SQL валидация (опционально)                             │
+│  • Secrets masking                                         │
+│  • SQL validation (optional)                               │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    MCP TOOLS                                │
 │  (src/tools/)                                               │
-│  • 7 container команд                                      │
-│  • 4 database команд                                        │
-│  • 3 environment команд                                     │
+│  • 7 container commands                                    │
+│  • 4 database commands                                      │
+│  • 3 environment commands                                   │
 │  • 1 universal executor                                     │
 │  • 1 MCP health tool                                        │
 └─────────────────────────────────────────────────────────────┘
@@ -92,7 +92,7 @@
 
 ---
 
-## 📁 Структура Проекта
+## 📁 Project Structure
 
 ```
 docker-mcp-server/
@@ -100,14 +100,14 @@ docker-mcp-server/
 │   ├── index.ts                          # MCP server entry point
 │   │
 │   ├── discovery/                        # 🔍 Project Discovery
-│   │   ├── project-discovery.ts          #   Основной класс discovery
-│   │   ├── compose-parser.ts             #   Парсинг YAML
-│   │   ├── config-merger.ts              #   Merge конфигов
+│   │   ├── project-discovery.ts          #   Main discovery class
+│   │   ├── compose-parser.ts             #   YAML parsing
+│   │   ├── config-merger.ts              #   Config merging
 │   │   └── types.ts                      #   ProjectConfig, ServiceConfig
 │   │
 │   ├── adapters/                         # 🔌 Database Adapters
-│   │   ├── database-adapter.ts           #   Интерфейс
-│   │   ├── adapter-registry.ts           #   Фабрика адаптеров
+│   │   ├── database-adapter.ts           #   Interface
+│   │   ├── adapter-registry.ts           #   Adapter factory
 │   │   ├── postgresql.ts                 #   PostgreSQL adapter
 │   │   ├── redis.ts                      #   Redis adapter
 │   │   └── sqlite.ts                     #   SQLite adapter
@@ -118,97 +118,97 @@ docker-mcp-server/
 │   │   └── env-manager.ts                #   Environment vars
 │   │
 │   ├── security/                         # 🔒 Security
-│   │   ├── secrets-masker.ts             #   Маскирование секретов
+│   │   ├── secrets-masker.ts             #   Secrets masking
 │   │   └── sql-validator.ts              #   SQL validation
 │   │
 │   ├── tools/                            # 🛠️ MCP Tools
-│   │   ├── container-tools.ts            #   7 container команд
-│   │   ├── database-tools.ts             #   4 database команд
-│   │   ├── env-tools.ts                  #   3 environment команд
-│   │   ├── executor-tool.ts              #   1 universal команда
-│   │   └── mcp-health-tool.ts           #   1 MCP health команда
+│   │   ├── container-tools.ts            #   7 container commands
+│   │   ├── database-tools.ts             #   4 database commands
+│   │   ├── env-tools.ts                  #   3 environment commands
+│   │   ├── executor-tool.ts              #   1 universal command
+│   │   └── mcp-health-tool.ts           #   1 MCP health command
 │   │
 │   └── cli.ts                            # 💻 CLI Interface
 │   │
 │   └── utils/                            # 🔧 Utilities
 │       ├── docker-client.ts              #   Dockerode client
 │       ├── logger.ts                     #   Logging (stderr)
-│       └── cache.ts                      #   Кеширование
+│       └── cache.ts                      #   Caching
 │
 ├── tests/
 │   ├── unit/                             # Unit tests
 │   ├── integration/                      # Integration tests
 │   └── e2e/                              # E2E tests
 │
-└── docs/                                 # Документация
+└── docs/                                 # Documentation
 ```
 
 ---
 
-## 🔍 Ключевые Компоненты
+## 🔍 Key Components
 
 ### 1. Project Discovery
 
-**Назначение:** Автоматическое обнаружение и парсинг docker-compose.yml
+**Purpose:** Automatic detection and parsing of docker-compose.yml
 
-**Основной класс:** `ProjectDiscovery`
+**Main class:** `ProjectDiscovery`
 
-**Основные методы:**
+**Main methods:**
 ```typescript
 class ProjectDiscovery {
-  // Поиск проекта с опциями
+  // Find project with options
   async findProject(options: DiscoveryOptions): Promise<ProjectConfig>
   
-  // Auto-detect compose файлов
+  // Auto-detect compose files
   private autoDetectFiles(cwd: string, env?: string): string[]
   
-  // Merge конфигов
+  // Merge configs
   private mergeConfigs(files: string[]): ProjectConfig
   
-  // Парсинг YAML
+  // Parse YAML
   private parseYaml(file: string): any
 }
 ```
 
-**Процесс обнаружения:**
+**Discovery process:**
 ```
-1. Если explicitPath → используем его
-2. Иначе ищем рекурсивно:
+1. If explicitPath → use it
+2. Otherwise search recursively:
    a. docker-compose.yml (base)
    b. docker-compose.{env}.yml (environment)
    c. docker-compose.override.yml (local)
-3. Мержим все файлы (deep merge)
-4. Определяем типы сервисов
-5. Кешируем результат (60 сек)
+3. Merge all files (deep merge)
+4. Detect service types
+5. Cache result (60 seconds)
 ```
 
-**Кеширование:**
-- TTL: 60 секунд
-- Key: absolute path к compose файлу
-- Инвалидация: по TTL или при ошибке
+**Caching:**
+- TTL: 60 seconds
+- Key: absolute path to compose file
+- Invalidation: by TTL or on error
 
 ---
 
 ### 2. Dockerode Client
 
-**Назначение:** Подключение к Docker API
+**Purpose:** Connection to Docker API
 
-**Основной класс:** `DockerClient` (wrapper над Dockerode)
+**Main class:** `DockerClient` (wrapper over Dockerode)
 
-**Инициализация:**
+**Initialization:**
 ```typescript
 import Docker from 'dockerode';
 
 const docker = new Docker();
-// Подключается автоматически к:
+// Automatically connects to:
 // - Mac/Windows: Docker Desktop socket
 // - Linux: /var/run/docker.sock
 
-// Проверка подключения
+// Check connection
 await docker.ping();
 ```
 
-**Основные операции:**
+**Main operations:**
 ```typescript
 // Containers
 const containers = await docker.listContainers({all: true});
@@ -229,11 +229,11 @@ const exec = await container.exec({
 
 ### 3. Container Manager
 
-**Назначение:** Управление Docker контейнерами
+**Purpose:** Docker container management
 
-**Основной класс:** `ContainerManager`
+**Main class:** `ContainerManager`
 
-**Основные методы:**
+**Main methods:**
 ```typescript
 class ContainerManager {
   constructor(private docker: Docker) {}
@@ -246,18 +246,18 @@ class ContainerManager {
 }
 ```
 
-**Поиск контейнеров:**
-- Формат имени: `{projectName}_{serviceName}_{index}`
-- Используем `docker.listContainers()` с фильтром по имени проекта
-- Маппим service name → container name
+**Container discovery:**
+- Name format: `{projectName}_{serviceName}_{index}`
+- Use `docker.listContainers()` with project name filter
+- Map service name → container name
 
 ---
 
 ### 4. Database Adapters
 
-**Назначение:** Абстракция для работы с разными БД
+**Purpose:** Abstraction for working with different databases
 
-**Интерфейс:**
+**Interface:**
 ```typescript
 interface DatabaseAdapter {
   query(service: string, query: string, options?: QueryOptions): Promise<string>;
@@ -278,52 +278,52 @@ class AdapterRegistry {
 }
 ```
 
-**Определение типа БД:**
+**Database type detection:**
 ```typescript
-// По image name в docker-compose.yml
+// By image name in docker-compose.yml
 if (image.includes('postgres')) return 'postgresql';
 if (image.includes('redis')) return 'redis';
 if (image.includes('sqlite')) return 'sqlite';
 ```
 
 **Connection Info:**
-- Читаем из environment variables (`.env` или `docker-compose.yml`)
+- Read from environment variables (`.env` or `docker-compose.yml`)
 - PostgreSQL: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
-- Redis: `REDIS_PASSWORD` (опционально)
-- SQLite: `SQLITE_DATABASE` (путь к файлу)
+- Redis: `REDIS_PASSWORD` (optional)
+- SQLite: `SQLITE_DATABASE` (file path)
 
 ---
 
 ### 5. Environment Manager
 
-**Назначение:** Управление environment variables
+**Purpose:** Environment variable management
 
-**Основной класс:** `EnvManager`
+**Main class:** `EnvManager`
 
-**Процесс:**
+**Process:**
 ```
-1. Читаем .env файлы (в порядке приоритета):
+1. Read .env files (in priority order):
    a. .env (base)
    b. .env.local (local overrides)
    c. .env.{NODE_ENV} (environment-specific)
-2. Читаем env из docker-compose.yml
-3. Мержим всё вместе
-4. Маскируем секреты (если нужно)
+2. Read env from docker-compose.yml
+3. Merge everything together
+4. Mask secrets (if needed)
 ```
 
 **Secrets Masking:**
 - Keywords: `PASSWORD`, `TOKEN`, `KEY`, `SECRET`, `API_KEY`, `PRIVATE`, `CREDENTIALS`
-- Case-insensitive поиск
-- Заменяем значение на `***MASKED***`
-- Можно отключить через опцию
+- Case-insensitive search
+- Replace value with `***MASKED***`
+- Can be disabled via option
 
 ---
 
 ### 6. MCP Tools
 
-**Назначение:** Регистрация MCP commands для AI ассистента
+**Purpose:** Registration of MCP commands for AI assistant
 
-**Регистрация:**
+**Registration:**
 ```typescript
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
@@ -338,7 +338,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         }
       }
     },
-    // ... остальные tools
+    // ... other tools
   ]
 }));
 
@@ -348,12 +348,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   switch (name) {
     case 'docker_container_list':
       return await containerTools.list(args);
-    // ... остальные cases
+    // ... other cases
   }
 });
 ```
 
-**Обработка ошибок:**
+**Error handling:**
 ```typescript
 try {
   const result = await manager.listContainers(projectName);
@@ -371,77 +371,77 @@ try {
 
 ---
 
-## 🔄 Поток Данных
+## 🔄 Data Flow
 
-### Пример: docker_container_list
+### Example: docker_container_list
 
 ```
 1. USER: "Show me all containers"
    ↓
-2. CURSOR (AI): Вызывает docker_container_list()
+2. CURSOR (AI): Calls docker_container_list()
    ↓
-3. MCP SERVER: Получает JSON-RPC request
+3. MCP SERVER: Receives JSON-RPC request
    ↓
-4. container-tools.ts: Обрабатывает запрос
+4. container-tools.ts: Processes request
    ↓
-5. ProjectDiscovery: Находит проект
+5. ProjectDiscovery: Finds project
    ↓
-6. ContainerManager: Получает список контейнеров
+6. ContainerManager: Gets container list
    ↓
 7. Dockerode: docker.listContainers()
    ↓
-8. Docker Engine: Возвращает список контейнеров
+8. Docker Engine: Returns container list
    ↓
-9. ContainerManager: Фильтрует по project name
+9. ContainerManager: Filters by project name
    ↓
-10. container-tools.ts: Форматирует результат
+10. container-tools.ts: Formats result
    ↓
-11. MCP SERVER: Возвращает JSON-RPC response
+11. MCP SERVER: Returns JSON-RPC response
    ↓
-12. CURSOR (AI): Показывает пользователю список
+12. CURSOR (AI): Shows list to user
 ```
 
-### Пример: docker_db_query
+### Example: docker_db_query
 
 ```
 1. USER: "Query postgres: SELECT * FROM users"
    ↓
-2. CURSOR (AI): Вызывает docker_db_query("postgres", "SELECT * FROM users")
+2. CURSOR (AI): Calls docker_db_query("postgres", "SELECT * FROM users")
    ↓
-3. MCP SERVER: Получает запрос
+3. MCP SERVER: Receives request
    ↓
-4. database-tools.ts: Обрабатывает запрос
+4. database-tools.ts: Processes request
    ↓
-5. ProjectDiscovery: Находит проект, определяет тип БД
+5. ProjectDiscovery: Finds project, detects database type
    ↓
-6. AdapterRegistry: Получает PostgreSQLAdapter
+6. AdapterRegistry: Gets PostgreSQLAdapter
    ↓
-7. PostgreSQLAdapter: Строит команду psql
+7. PostgreSQLAdapter: Builds psql command
    ↓
-8. EnvManager: Получает credentials
+8. EnvManager: Gets credentials
    ↓
-9. docker_exec: Выполняет psql команду в контейнере
+9. docker_exec: Executes psql command in container
    ↓
-10. PostgreSQL Container: Выполняет SQL
+10. PostgreSQL Container: Executes SQL
    ↓
-11. PostgreSQLAdapter: Возвращает результат
+11. PostgreSQLAdapter: Returns result
    ↓
-12. database-tools.ts: Форматирует результат
+12. database-tools.ts: Formats result
    ↓
-13. MCP SERVER: Возвращает JSON-RPC response
+13. MCP SERVER: Returns JSON-RPC response
    ↓
-14. CURSOR (AI): Показывает таблицу пользователей
+14. CURSOR (AI): Shows user table
 ```
 
 ---
 
-## 🔒 Безопасность
+## 🔒 Security
 
 ### Secrets Masking
 
-**Где применяется:**
-- `docker_env_list()` - автоматически
-- Все команды, возвращающие environment variables
+**Where applied:**
+- `docker_env_list()` - automatically
+- All commands returning environment variables
 
 **Keywords:**
 ```typescript
@@ -456,7 +456,7 @@ const SECRET_KEYWORDS = [
 ];
 ```
 
-**Алгоритм:**
+**Algorithm:**
 ```typescript
 function maskSecrets(env: Record<string, string>): Record<string, string> {
   const masked: Record<string, string> = {};
@@ -473,20 +473,20 @@ function maskSecrets(env: Record<string, string>): Record<string, string> {
 }
 ```
 
-### SQL Validation (опционально)
+### SQL Validation (optional)
 
-**Включение:**
+**Enable:**
 ```typescript
 process.env.DOCKER_MCP_VALIDATE_SQL === 'true'
 ```
 
-**Паттерны:**
+**Patterns:**
 - `DROP DATABASE`
-- `DELETE FROM table` (без WHERE)
+- `DELETE FROM table` (without WHERE)
 - `TRUNCATE TABLE`
 - `DROP TABLE`
 
-**Использование:**
+**Usage:**
 ```typescript
 if (process.env.DOCKER_MCP_VALIDATE_SQL === 'true') {
   sqlValidator.validate(sql);
@@ -495,13 +495,13 @@ if (process.env.DOCKER_MCP_VALIDATE_SQL === 'true') {
 
 ---
 
-## 🧪 Тестирование
+## 🧪 Testing
 
 ### Unit Tests
 
-**Подход:** Моки для изоляции
+**Approach:** Mocks for isolation
 
-**Пример:**
+**Example:**
 ```typescript
 // tests/unit/managers/container-manager.test.ts
 describe('ContainerManager', () => {
@@ -526,14 +526,14 @@ describe('ContainerManager', () => {
 
 ### Integration Tests
 
-**Подход:** Реальный Docker (требует запущенного Docker)
+**Approach:** Real Docker (requires running Docker)
 
-**Пример:**
+**Example:**
 ```typescript
 // tests/integration/container-workflow.test.ts
 describe('Container Workflow', () => {
   beforeAll(async () => {
-    // Запустить test containers
+    // Start test containers
     await exec('docker-compose -f docker-compose.test.yml up -d');
   });
   
@@ -551,41 +551,41 @@ describe('Container Workflow', () => {
 
 ---
 
-## 📊 Производительность
+## 📊 Performance
 
-### Кеширование
+### Caching
 
-**Где кешируем:**
-- ProjectConfig (60 секунд)
-- Environment variables (60 секунд)
+**Where we cache:**
+- ProjectConfig (60 seconds)
+- Environment variables (60 seconds)
 
-**Инвалидация:**
-- По TTL
-- При ошибке
+**Invalidation:**
+- By TTL
+- On error
 
-### Оптимизации
+### Optimizations
 
-- **Dockerode vs CLI:** Dockerode быстрее (8-10x) благодаря прямому API
-- **Lazy loading:** Адаптеры загружаются только когда нужны
-- **Streaming:** Logs и exec используют streams для больших данных
+- **Dockerode vs CLI:** Dockerode is faster (8-10x) thanks to direct API
+- **Lazy loading:** Adapters loaded only when needed
+- **Streaming:** Logs and exec use streams for large data
 
 ---
 
-## 🐛 Обработка Ошибок
+## 🐛 Error Handling
 
-### Типы ошибок
+### Error Types
 
-1. **Docker не запущен**
+1. **Docker not running**
    ```typescript
    Error: Docker is not running. Please start Docker Desktop.
    ```
 
-2. **docker-compose.yml не найден**
+2. **docker-compose.yml not found**
    ```typescript
    Error: docker-compose.yml not found. Please run from project directory.
    ```
 
-3. **Контейнер не найден**
+3. **Container not found**
    ```typescript
    Error: Container 'web' not found in project 'my-project'
    ```
@@ -609,7 +609,7 @@ try {
 
 ---
 
-## 🔗 Зависимости между Модулями
+## 🔗 Module Dependencies
 
 ```
 index.ts
@@ -634,37 +634,36 @@ index.ts
 
 ## 📝 Best Practices
 
-### Код
+### Code
 
-1. **TypeScript strict mode** - использовать везде
-2. **Error handling** - всегда try/catch с понятными ошибками
-3. **Logging** - использовать logger, не console.log
-4. **Async/await** - предпочитать Promise chains
+1. **TypeScript strict mode** - use everywhere
+2. **Error handling** - always try/catch with clear errors
+3. **Logging** - use logger, not console.log
+4. **Async/await** - prefer over Promise chains
 
-### Архитектура
+### Architecture
 
-1. **Separation of concerns** - каждый модуль отвечает за одно
-2. **Dependency injection** - передавать зависимости через конструктор
-3. **Interface over implementation** - использовать интерфейсы (DatabaseAdapter)
-4. **Fail fast** - валидировать входные данные сразу
+1. **Separation of concerns** - each module responsible for one thing
+2. **Dependency injection** - pass dependencies through constructor
+3. **Interface over implementation** - use interfaces (DatabaseAdapter)
+4. **Fail fast** - validate input data immediately
 
 ### Testing
 
-1. **Unit tests** - изолировать с моками
-2. **Integration tests** - тестировать реальные workflows
-3. **E2E tests** - тестировать критичные пути
-4. **Coverage** - стремиться к 80%+
+1. **Unit tests** - isolate with mocks
+2. **Integration tests** - test real workflows
+3. **E2E tests** - test critical paths
+4. **Coverage** - aim for 80%+
 
 ---
 
-## 🔗 Связанные Документы
+## 🔗 Related Documents
 
-- [План Разработки](./sprints/SPRINTS.md)
+- [Development Plan](./sprints/SPRINTS.md)
 - [API Reference](./API_REFERENCE.md)
 - [Database Adapters](./DATABASE_ADAPTERS.md)
 
 ---
 
-**Обновлено:** 2025-01-XX  
-**Версия:** 1.0
-
+**Updated:** 2025-01-XX  
+**Version:** 1.0
