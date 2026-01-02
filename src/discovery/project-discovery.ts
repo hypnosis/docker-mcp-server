@@ -64,10 +64,19 @@ export class ProjectDiscovery {
             ? 'MCP workspace root' 
             : 'process.cwd() (MCP workspace root not available)';
           
+          // Предлагаем возможные решения
+          const suggestions = [
+            'Make sure you are in a directory with docker-compose.yml',
+            'Or specify the project path explicitly',
+            'Supported filenames: docker-compose.yml, docker-compose.yaml, compose.yml, compose.yaml'
+          ];
+          
           throw new Error(
             'docker-compose.yml not found. Please run from project directory.\n' +
             'Searched directories:\n' +
-            `  ${cwd} (${workspaceInfo}) (and parent directories)`
+            `  ${cwd} (${workspaceInfo}) (and parent directories)\n\n` +
+            'Suggestions:\n' +
+            suggestions.map(s => `  - ${s}`).join('\n')
           );
         }
 

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.3] - 2026-01-02
+
+### Changed
+
+- **Dynamic Version Detection** — Server version now automatically reads from `package.json`
+  - Version in logs and MCP server info now matches package.json version
+  - No need to manually update version in code
+
+- **Improved Error Messages** — Enhanced error messages for better user experience
+  - Added helpful suggestions when docker-compose.yml is not found
+  - Lists supported compose file names
+  - Provides actionable guidance
+
+### Fixed
+
+- **Server Version** — MCP server now reports correct version from package.json instead of hardcoded value
+
+---
+
 ## [1.0.2] - 2026-01-02
 
 ### Fixed

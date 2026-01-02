@@ -31,7 +31,10 @@ async function main() {
     process.exit(1);
   }
 
-  logger.info('Starting Docker MCP Server v1.0.0');
+  // Get version from package.json
+  const packageJson = await import('../package.json', { assert: { type: 'json' } });
+  const version = packageJson.default.version || '1.0.0';
+  logger.info(`Starting Docker MCP Server v${version}`);
 
   // Docker check
   try {
@@ -61,7 +64,7 @@ async function main() {
   const server = new Server(
     {
       name: 'docker-mcp-server',
-      version: '0.1.0',
+      version: version,
     },
     {
       capabilities: {
