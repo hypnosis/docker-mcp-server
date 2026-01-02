@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * MCP Server Entry Point
  * Docker MCP Server for AI assistants (Cursor, Claude Desktop)

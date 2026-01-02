@@ -1,13 +1,13 @@
 {
   "name": "@hypnosis/docker-mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Universal Docker MCP server for AI assistants (Cursor, Claude Desktop)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "docker-mcp-server": "./dist/index.js",
-    "docker-mcp-server-cli": "./dist/cli.js"
+    "docker-mcp-server": "dist/index.js",
+    "docker-mcp-server-cli": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -23,7 +23,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build && npm test",
+    "publish:dry": "npm pack --dry-run",
+    "publish:check": "npm pack && tar -tzf *.tgz | head -20 && rm -f *.tgz",
+    "publish:npm": "npm publish --access public"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.0",
@@ -56,6 +60,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/hypnosis/docker-mcp-server"
+    "url": "git+https://github.com/hypnosis/docker-mcp-server.git"
   }
 }
