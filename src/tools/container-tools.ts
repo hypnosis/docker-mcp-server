@@ -241,7 +241,7 @@ export class ContainerTools {
 
   private async handleList(args: any) {
     const project = await this.getProject(args?.project);
-    const containers = await this.containerManager.listContainers(project.name);
+    const containers = await this.containerManager.listContainers(project.name, project.composeFile, project.projectDir);
 
     return {
       content: [
@@ -259,7 +259,7 @@ export class ContainerTools {
     }
 
     const project = await this.getProject(args?.project);
-    await this.containerManager.startContainer(args.service, project.name);
+    await this.containerManager.startContainer(args.service, project.name, project.composeFile, project.projectDir);
 
     return {
       content: [
@@ -280,7 +280,9 @@ export class ContainerTools {
     await this.containerManager.stopContainer(
       args.service,
       project.name,
-      args?.timeout || 10
+      args?.timeout || 10,
+      project.composeFile,
+      project.projectDir
     );
 
     return {
@@ -302,7 +304,9 @@ export class ContainerTools {
     await this.containerManager.restartContainer(
       args.service,
       project.name,
-      args?.timeout || 10
+      args?.timeout || 10,
+      project.composeFile,
+      project.projectDir
     );
 
     return {
@@ -321,11 +325,17 @@ export class ContainerTools {
     }
 
     const project = await this.getProject(args?.project);
-    const logs = await this.containerManager.getLogs(args.service, project.name, {
-      lines: args?.lines || 100,
-      timestamps: args?.timestamps || false,
-      follow: args?.follow || false,
-    });
+    const logs = await this.containerManager.getLogs(
+      args.service,
+      project.name,
+      {
+        lines: args?.lines || 100,
+        timestamps: args?.timestamps || false,
+        follow: args?.follow || false,
+      },
+      project.composeFile,
+      project.projectDir
+    );
 
     // Если это stream (follow mode), собираем данные из stream
     if (args?.follow && typeof logs !== 'string') {

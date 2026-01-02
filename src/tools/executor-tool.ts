@@ -80,7 +80,9 @@ export class ExecutorTool {
           user: args.user,
           workdir: args.workdir,
           interactive: args.interactive || false,
-        }
+        },
+        project.composeFile,
+        project.projectDir
       );
 
       return {

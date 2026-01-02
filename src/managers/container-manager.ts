@@ -41,9 +41,75 @@ export class ContainerManager {
   /**
    * Список контейнеров проекта
    */
-  async listContainers(projectName: string): Promise<ContainerInfo[]> {
+  async listContainers(projectName: string, composeFile?: string, projectDir?: string): Promise<ContainerInfo[]> {
     logger.debug(`Listing containers for project: ${projectName}`);
 
+    // Вариант 1: Используем Docker Compose labels (прямой вызов Docker API)
+    try {
+      const containers = await this.docker.listContainers({
+        all: true,
+        filters: {
+          label: [`com.docker.compose.project=${projectName}`],
+        },
+      });
+
+      if (containers.length > 0) {
+        logger.debug(`Found ${containers.length} containers via Docker Compose labels`);
+        return containers.map((c) => this.mapContainerInfo(c, projectName));
+      }
+      
+      logger.debug('No containers found via labels, trying fallback methods');
+    } catch (error) {
+      logger.debug('Failed to list containers via labels:', error);
+    }
+
+    // Fallback 1: Используем docker-compose ps CLI (если есть composeFile)
+    if (composeFile && projectDir) {
+      try {
+        const { ComposeExec } = await import('../utils/compose-exec.js');
+        const output = ComposeExec.run(composeFile, ['ps', '--format', 'json'], {
+          cwd: projectDir,
+        });
+        
+        const composeContainers = output
+          .split('\n')
+          .filter(line => line.trim())
+          .map(line => {
+            try {
+              return JSON.parse(line);
+            } catch {
+              return null;
+            }
+          })
+          .filter(c => c && c.Name);
+
+        if (composeContainers.length > 0) {
+          logger.debug(`Found ${composeContainers.length} containers via docker-compose ps`);
+          
+          // Получаем полную информацию о контейнерах через Docker API
+          const containerNames = composeContainers.map(c => c.Name);
+          const allContainers = await this.docker.listContainers({ all: true });
+          
+          const projectContainers = allContainers.filter(c => {
+            const name = c.Names[0]?.replace(/^\//, '') || '';
+            return containerNames.some(n => name === n || name.includes(n));
+          });
+
+          return projectContainers.map((c) => {
+            const composeInfo = composeContainers.find(cc => {
+              const name = c.Names[0]?.replace(/^\//, '') || '';
+              return name === cc.Name || name.includes(cc.Name);
+            });
+            return this.mapContainerInfo(c, projectName, composeInfo?.Service);
+          });
+        }
+      } catch (error) {
+        logger.debug('Failed to use docker-compose ps:', error);
+      }
+    }
+
+    // Fallback 2: Фильтр по имени проекта в названии контейнера
+    logger.debug('Using name-based filter as final fallback');
     const containers = await this.docker.listContainers({
       all: true,
       filters: {
@@ -57,8 +123,8 @@ export class ContainerManager {
   /**
    * Запустить контейнер
    */
-  async startContainer(serviceName: string, projectName: string): Promise<void> {
-    const container = await this.findContainer(serviceName, projectName);
+  async startContainer(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<void> {
+    const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     logger.info(`Starting container: ${serviceName}`);
     await container.start();
@@ -68,8 +134,8 @@ export class ContainerManager {
   /**
    * Остановить контейнер
    */
-  async stopContainer(serviceName: string, projectName: string, timeout = 10): Promise<void> {
-    const container = await this.findContainer(serviceName, projectName);
+  async stopContainer(serviceName: string, projectName: string, timeout = 10, composeFile?: string, projectDir?: string): Promise<void> {
+    const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     logger.info(`Stopping container: ${serviceName}`);
     await container.stop({ t: timeout });
@@ -79,8 +145,8 @@ export class ContainerManager {
   /**
    * Перезапустить контейнер
    */
-  async restartContainer(serviceName: string, projectName: string, timeout = 10): Promise<void> {
-    const container = await this.findContainer(serviceName, projectName);
+  async restartContainer(serviceName: string, projectName: string, timeout = 10, composeFile?: string, projectDir?: string): Promise<void> {
+    const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     logger.info(`Restarting container: ${serviceName}`);
     await container.restart({ t: timeout });
@@ -94,9 +160,11 @@ export class ContainerManager {
   async getLogs(
     serviceName: string,
     projectName: string,
-    options: LogOptions = {}
+    options: LogOptions = {},
+    composeFile?: string,
+    projectDir?: string
   ): Promise<string | NodeJS.ReadableStream> {
-    const container = await this.findContainer(serviceName, projectName);
+    const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
 
     logger.debug(`Getting logs for: ${serviceName}`, options);
 
@@ -131,8 +199,8 @@ export class ContainerManager {
   /**
    * Получить health status контейнера
    */
-  async getHealthStatus(serviceName: string, projectName: string): Promise<ContainerHealthStatus> {
-    const container = await this.findContainer(serviceName, projectName);
+  async getHealthStatus(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<ContainerHealthStatus> {
+    const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     try {
       const info = await container.inspect();
@@ -177,9 +245,11 @@ export class ContainerManager {
     serviceName: string,
     projectName: string,
     command: string[],
-    options: { user?: string; workdir?: string; env?: string[]; interactive?: boolean } = {}
+    options: { user?: string; workdir?: string; env?: string[]; interactive?: boolean } = {},
+    composeFile?: string,
+    projectDir?: string
   ): Promise<string> {
-    const container = await this.findContainer(serviceName, projectName);
+    const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     logger.debug(`Executing in ${serviceName}:`, command.join(' '));
     if (options.interactive) {
@@ -214,8 +284,8 @@ export class ContainerManager {
   /**
    * Найти контейнер по имени сервиса
    */
-  private async findContainer(serviceName: string, projectName: string): Promise<Docker.Container> {
-    const containers = await this.listContainers(projectName);
+  private async findContainer(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<Docker.Container> {
+    const containers = await this.listContainers(projectName, composeFile, projectDir);
     
     const found = containers.find((c) => c.service === serviceName);
     
@@ -233,10 +303,14 @@ export class ContainerManager {
   /**
    * Маппинг Docker ContainerInfo → наш формат
    */
-  private mapContainerInfo(container: any, projectName: string): ContainerInfo {
+  private mapContainerInfo(container: any, projectName: string, serviceNameOverride?: string): ContainerInfo {
     // Имя контейнера: /project_service_1 → извлекаем service
     const fullName = container.Names[0]?.replace(/^\//, '') || '';
-    const serviceName = this.extractServiceName(fullName, projectName);
+    
+    // Приоритет: override → label → извлечение из имени
+    const serviceName = serviceNameOverride 
+      || container.Labels?.['com.docker.compose.service']
+      || this.extractServiceName(fullName, projectName);
 
     return {
       id: container.Id,

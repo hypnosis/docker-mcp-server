@@ -22,6 +22,13 @@ import { RedisAdapter } from './adapters/redis.js';
 import { SQLiteAdapter } from './adapters/sqlite.js';
 
 async function main() {
+  // Если есть аргументы командной строки, используем CLI режим
+  if (process.argv.length > 2) {
+    // CLI режим обрабатывается в cli.ts
+    console.error('Use "docker-mcp-server-cli" for CLI mode or run without arguments for MCP mode');
+    process.exit(1);
+  }
+
   logger.info('Starting Docker MCP Server v1.0.0');
 
   // Проверка Docker
@@ -115,7 +122,7 @@ async function main() {
   await server.connect(transport);
 
   logger.info('Docker MCP Server started successfully');
-  logger.info('Registered tools: 15 commands (6 container + 1 executor + 4 database + 3 environment + 1 mcp-health)');
+  logger.info('Registered tools: 16 commands (7 container + 1 executor + 4 database + 3 environment + 1 mcp-health)');
   logger.info('Listening on STDIO...');
 }
 

@@ -7,7 +7,7 @@ Universal Docker MCP server for AI assistants (Cursor, Claude Desktop). Manage D
 
 ## ✨ Features
 
-- ✅ **15 MCP Commands** — Container management, database operations, environment handling
+- ✅ **16 MCP Commands** — Container management, database operations, environment handling
 - ✅ **Database Support** — PostgreSQL, Redis, SQLite with extensible adapter pattern
 - ✅ **Auto-Discovery** — Automatically finds and parses `docker-compose.yml` files
 - ✅ **Security** — Automatic secrets masking in environment variables

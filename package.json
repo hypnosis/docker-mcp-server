@@ -6,7 +6,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "docker-mcp-server": "./dist/index.js"
+    "docker-mcp-server": "./dist/index.js",
+    "docker-mcp-server-cli": "./dist/cli.js"
   },
   "files": [
     "dist",

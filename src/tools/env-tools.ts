@@ -301,7 +301,7 @@ export class EnvTools {
     const serviceStatuses = await Promise.all(
       servicesToCheck.map(async (serviceName) => {
         try {
-          const health = await this.containerManager.getHealthStatus(serviceName, project.name);
+          const health = await this.containerManager.getHealthStatus(serviceName, project.name, project.composeFile, project.projectDir);
           return {
             name: serviceName,
             status: health.status,
