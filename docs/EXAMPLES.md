@@ -31,7 +31,7 @@ services:
     environment:
       POSTGRES_DB: myapp
       POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: example_password
   
   redis:
     image: redis:7-alpine
