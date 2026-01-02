@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] - 2026-01-02
+
+### Fixed
+
+- **Workspace Root Detection** — MCP server now correctly finds `docker-compose.yml` in workspace directory
+  - Added workspace root detection via MCP `roots/list` protocol
+  - Fixed `docker-compose.yml` discovery to use workspace root from MCP client instead of `process.cwd()`
+  - Improved error messages to indicate workspace root source
+
+- **Port Conflict Detection** — Automatic detection and helpful error messages for port conflicts
+  - Added `port-utils.ts` with functions to find containers by port
+  - Enhanced error handling in `compose-manager.ts` to detect port conflicts
+  - Error messages now show which container is using the conflicting port
+  - Improved error message extraction from docker-compose stderr/stdout
+
+- **Command Routing** — Fixed `docker_compose_config` command routing
+  - Fixed bug where `docker_compose_config` was incorrectly routed to `containerTools` instead of `envTools`
+  - Changed routing order to check `envTools` before `docker_compose_` prefix check
+  - All 16 commands now work correctly
+
+### Added
+
+- **Workspace Manager** (`src/utils/workspace.ts`) — Centralized workspace root management
+  - Stores workspace root obtained from MCP client via `listRoots()`
+  - Provides fallback to `process.cwd()` if workspace root not available
+  - Used by `ProjectDiscovery` for automatic compose file detection
+
+- **Port Utilities** (`src/utils/port-utils.ts`) — Utilities for port conflict detection
+  - `findContainerByPort()` — Find container using specific port
+  - `extractPortFromError()` — Extract port number from Docker error messages
+  - `stopContainerById()` — Helper to stop conflicting containers
+
+### Changed
+
+- **Error Handling** — Improved error messages throughout
+  - Better error message extraction from docker-compose commands (includes stderr/stdout)
+  - Port conflict errors now include container name, ID, and status
+  - Suggestions for resolving port conflicts
+
+- **Project Discovery** — Enhanced to use workspace root
+  - Uses MCP workspace root when available
+  - Falls back to `process.cwd()` if workspace root not available
+  - Improved error messages to indicate workspace root source
+
+### Testing
+
+- Complete stress testing of all 16 commands
+- Tested workspace root detection with Cursor
+- Tested port conflict detection with real conflicts
+- Tested error handling when Docker Desktop is not running
+- All commands tested and verified working (100% coverage)
+
+---
+
 ## [1.0.0] - 2026-01-02
 
 ### Added
