@@ -160,12 +160,12 @@ node /path/to/node_modules/@hypnosis/docker-mcp-server/dist/index.js
 services:
   python:
     image: python:3.11-slim
-    container_name: test-python-app
+    container_name: my-python-app
     command: tail -f /dev/null
     
   redis:
     image: redis:7-alpine
-    container_name: test-redis
+    container_name: my-redis
     ports:
       - "6381:6379"
     healthcheck:
@@ -210,14 +210,14 @@ $ docker-mcp-server-cli ps
 [
   {
     "id": "907abf97e581...",
-    "name": "test-python-app",
+    "name": "my-python-app",
     "service": "python",
     "status": "running",
     "image": "python:3.11-slim"
   },
   {
     "id": "7be74dd55808...",
-    "name": "test-redis",
+    "name": "my-redis",
     "service": "redis",
     "status": "running",
     "image": "redis:7-alpine"
@@ -237,7 +237,7 @@ $ docker-mcp-server-cli container-restart redis
 
 ### 9. Архитектурные улучшения ✅
 
-**Проблема:** `listContainers` не находил контейнеры с custom именами (например, `test-python-app` вместо `test-docker-mcp-project-python-1`)
+**Проблема:** `listContainers` не находил контейнеры с custom именами (например, `my-python-app` вместо `my-project-python-1`)
 
 **Решение:** Реализован трехуровневый fallback:
 
@@ -330,7 +330,7 @@ if (containers.length === 0) {
 
 ### 2. Контейнеры не находились
 - **Проблема:** `listContainers` не находил контейнеры с custom именами
-- **Причина:** Фильтр по `name: [projectName]` не работал для `test-python-app`
+- **Причина:** Фильтр по `name: [projectName]` не работал для контейнеров с custom именами
 - **Исправление:** Реализован трехуровневый fallback (labels → CLI → name)
 
 ### 3. Отсутствие CLI интерфейса

@@ -159,8 +159,8 @@ docker ps
 
 ```bash
 # Создать тестовую директорию
-mkdir ~/test-docker-mcp
-cd ~/test-docker-mcp
+mkdir ~/my-docker-project
+cd ~/my-docker-project
 
 # Создать простой docker-compose.yml
 cat > docker-compose.yml << 'EOF'
