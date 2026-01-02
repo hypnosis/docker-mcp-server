@@ -281,8 +281,8 @@ const SECRET_KEYWORDS = [
 **Example:**
 ```typescript
 // Original .env
-DATABASE_PASSWORD=super_secret_123
-API_TOKEN=abc123xyz
+DATABASE_PASSWORD=example_password_123
+API_TOKEN=example_token_xyz
 DEBUG=true
 
 // docker_env_list() output

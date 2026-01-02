@@ -34,7 +34,7 @@ git clone https://github.com/hypnosis/docker-mcp-server.git
 cd docker-mcp-server
 
 # Copy all documentation
-cp -r /Users/hypnosis/projects/dungeon-mayhem/docs/docker-mcp-server/* ./docs/
+cp -r /path/to/source/docs/docker-mcp-server/* ./docs/
 ```
 
 ---

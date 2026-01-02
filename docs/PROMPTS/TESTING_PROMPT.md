@@ -172,7 +172,7 @@ services:
       - "8080:80"
     environment:
       - TEST_VAR=test_value
-      - SECRET_PASSWORD=my_secret_pass
+      - SECRET_PASSWORD=example_secret_password
   redis:
     image: redis:alpine
     ports:

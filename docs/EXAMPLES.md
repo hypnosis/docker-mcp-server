@@ -291,7 +291,7 @@ docker_compose_up()
 
 // Get Jupyter token
 docker_container_logs("jupyter", {lines: 20})
-// → http://127.0.0.1:8888/?token=abc123...
+// → http://127.0.0.1:8888/?token=example_token_123...
 
 // Load data into database
 docker_exec("postgres", 

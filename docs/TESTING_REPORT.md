@@ -49,12 +49,12 @@ Docker MCP Server v1.0.0 успешно прошел полный цикл те�
 
 **Установка:**
 ```bash
-npm install -g /Users/hypnosis/projects/docker-mcp-server/hypnosis-docker-mcp-server-1.0.0.tgz
+npm install -g ./docker-mcp-server-1.0.0.tgz
 ```
 
 **Запуск сервера:**
 ```bash
-node /opt/homebrew/lib/node_modules/@hypnosis/docker-mcp-server/dist/index.js
+node /path/to/node_modules/@hypnosis/docker-mcp-server/dist/index.js
 ```
 
 **Результат:**
@@ -82,8 +82,8 @@ node /opt/homebrew/lib/node_modules/@hypnosis/docker-mcp-server/dist/index.js
 ```javascript
 {
   TEST_VAR: 'test_value',
-  SECRET_PASSWORD: 'my_secret_pass',
-  API_KEY: 'sk-1234567890abcdef',
+  SECRET_PASSWORD: 'example_secret_password',
+  API_KEY: 'example_api_key_123456',
   REDIS_PASSWORD: 'redis_secret_123',
   DATABASE_URL: 'postgres://user:pass@localhost/db',
   DEBUG: 'true'
@@ -131,7 +131,7 @@ node /opt/homebrew/lib/node_modules/@hypnosis/docker-mcp-server/dist/index.js
   "mcpServers": {
     "docker": {
       "command": "node",
-      "args": ["/opt/homebrew/lib/node_modules/@hypnosis/docker-mcp-server/dist/index.js"],
+      "args": ["/path/to/node_modules/@hypnosis/docker-mcp-server/dist/index.js"],
       "env": {
         "DOCKER_MCP_AUTO_DISCOVER": "true",
         "DOCKER_MCP_MASK_SECRETS": "true"
@@ -153,7 +153,7 @@ node /opt/homebrew/lib/node_modules/@hypnosis/docker-mcp-server/dist/index.js
 
 ### 7. Реальные операции с контейнерами ✅
 
-**Тестовый проект:** `/tmp/test-docker-mcp-project`
+**Тестовый проект:** `/tmp/my-docker-project`
 
 **docker-compose.yml:**
 ```yaml
@@ -281,7 +281,7 @@ if (containers.length === 0) {
 
 **Результат:**
 ```
-[DEBUG] Listing containers for project: test-docker-mcp-project
+[DEBUG] Listing containers for project: my-docker-project
 [DEBUG] Found 2 containers via Docker Compose labels
 ```
 

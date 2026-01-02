@@ -267,8 +267,8 @@ Environment variables containing sensitive data are automatically masked:
 Keywords: PASSWORD, TOKEN, KEY, SECRET, API_KEY, PRIVATE, CREDENTIALS, AUTH
 
 Example:
-DATABASE_PASSWORD=super_secret → DATABASE_PASSWORD=***MASKED***
-API_TOKEN=abc123 → API_TOKEN=***MASKED***
+DATABASE_PASSWORD=example_password → DATABASE_PASSWORD=***MASKED***
+API_TOKEN=example_token → API_TOKEN=***MASKED***
 DEBUG=true → DEBUG=true (not masked)
 ```
 

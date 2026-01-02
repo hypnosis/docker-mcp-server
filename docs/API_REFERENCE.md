@@ -443,7 +443,7 @@ docker_db_backup(
 ```typescript
 // Simple backup
 docker_db_backup("postgres")
-// → /tmp/backup-postgres-20241231-100000.dump
+// → ./backup-postgres-20241231-100000.dump
 
 // Custom output path
 docker_db_backup("postgres", "./backups/pre-deploy.sql")
@@ -461,7 +461,7 @@ docker_db_backup("postgres", "./users.dump", {
 ```typescript
 // Create RDB snapshot
 docker_db_backup("redis")
-// → /tmp/backup-redis-20241231-100000.rdb
+// → ./backup-redis-20241231-100000.rdb
 
 // Custom output
 docker_db_backup("redis", "./backups/redis.rdb")
@@ -471,7 +471,7 @@ docker_db_backup("redis", "./backups/redis.rdb")
 ```typescript
 // Backup database file
 docker_db_backup("app")
-// → /tmp/backup-sqlite-20241231-100000.db
+// → ./backup-sqlite-20241231-100000.db
 
 // Custom output
 docker_db_backup("app", "./backups/database.db")
@@ -480,7 +480,7 @@ docker_db_backup("app", "./backups/database.db")
 **Output:**
 ```
 ✅ Backup created successfully
-   Location: /tmp/backup-postgres-20241231-100000.dump
+   Location: ./backup-postgres-20241231-100000.dump
    Size: 2.5 MB
    Format: custom (compressed)
 ```

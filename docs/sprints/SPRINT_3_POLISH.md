@@ -56,7 +56,7 @@
 ```typescript
 const env = {
   DATABASE_PASSWORD: 'secret123',
-  API_TOKEN: 'abc123',
+  API_TOKEN: 'example_token_123',
   DEBUG: 'true'
 };
 

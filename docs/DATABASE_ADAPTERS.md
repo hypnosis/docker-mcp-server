@@ -161,7 +161,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   async backup(service: string, options: BackupOptions): Promise<string> {
     const conn = this.getConnectionInfo(service);
     const format = options.format || 'custom';
-    const output = options.output || `/tmp/backup-${Date.now()}.dump`;
+    const output = options.output || `./backup-${Date.now()}.dump`;
     
     let command = `pg_dump -U ${conn.user} -d ${conn.database}`;
     
@@ -259,7 +259,7 @@ export class RedisAdapter implements DatabaseAdapter {
     await this.query(service, 'SAVE');
     
     // Copy dump.rdb from container
-    const output = options.output || `/tmp/redis-backup-${Date.now()}.rdb`;
+    const output = options.output || `./redis-backup-${Date.now()}.rdb`;
     await dockerExec(service, `cp /data/dump.rdb ${output}`);
     
     return output;
@@ -335,7 +335,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
   
   async backup(service: string, options: BackupOptions): Promise<string> {
     const dbPath = this.getDatabasePath(service);
-    const output = options.output || `/tmp/sqlite-backup-${Date.now()}.db`;
+    const output = options.output || `./sqlite-backup-${Date.now()}.db`;
     
     await dockerExec(service, `sqlite3 ${dbPath} ".backup ${output}"`);
     return output;
@@ -402,7 +402,7 @@ export class MySQLAdapter implements DatabaseAdapter {
   
   async backup(service: string, options: BackupOptions): Promise<string> {
     const conn = this.getConnectionInfo(service);
-    const output = options.output || `/tmp/mysql-backup-${Date.now()}.sql`;
+    const output = options.output || `./mysql-backup-${Date.now()}.sql`;
     
     let command = `mysqldump -u ${conn.user} -p${conn.password} ${conn.database}`;
     
@@ -658,7 +658,7 @@ describe('Database Adapters Integration', () => {
 const command = `mysql -u user -pMyPassword -e "${sql}"`;
 
 // ✅ GOOD: Use environment variable or config file
-const command = `mysql --defaults-extra-file=/tmp/mysql.cnf -e "${sql}"`;
+const command = `mysql --defaults-extra-file=./mysql.cnf -e "${sql}"`;
 ```
 
 ### 2. Validate Input

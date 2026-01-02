@@ -24,11 +24,11 @@ Copy all documentation files from `dungeon-mayhem/docs/docker-mcp-server/` to th
 
 ```bash
 # From the new repository directory
-cp -r /Users/hypnosis/projects/dungeon-mayhem/docs/docker-mcp-server/* ./docs/
+cp -r /path/to/source/docs/docker-mcp-server/* ./docs/
 
 # Or create docs directory first
 mkdir -p docs
-cp -r /Users/hypnosis/projects/dungeon-mayhem/docs/docker-mcp-server/* ./docs/
+cp -r /path/to/source/docs/docker-mcp-server/* ./docs/
 ```
 
 **Files to copy:**
@@ -188,7 +188,7 @@ cat > README.md << 'EOF'
 ## Quick Start
 
 ```bash
-npm install -g @hypnosus/docker-mcp-server
+npm install -g @hypnosis/docker-mcp-server
 ```
 
 ## Documentation
@@ -212,7 +212,7 @@ Complete documentation is available in the [`docs/`](./docs/) directory:
 ## Installation
 
 ```bash
-npm install -g @hypnosus/docker-mcp-server
+npm install -g @hypnosis/docker-mcp-server
 ```
 
 ## Configuration
@@ -224,7 +224,7 @@ Add to `~/.cursor/mcp.json`:
   "mcpServers": {
     "docker": {
       "command": "npx",
-      "args": ["-y", "@hypnosus/docker-mcp-server"]
+      "args": ["-y", "@hypnosis/docker-mcp-server"]
     }
   }
 }

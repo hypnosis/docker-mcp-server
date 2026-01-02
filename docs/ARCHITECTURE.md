@@ -169,12 +169,12 @@ class ProjectDiscovery {
 ### Example: Auto-Discovery in Action
 
 ```typescript
-// User's working directory: /Users/dev/my-project/src/
+// User's working directory: /path/to/my-project/src/
 // MCP Server automatically:
 
 1. Searches for docker-compose.yml:
-   /Users/dev/my-project/src/docker-compose.yml ❌
-   /Users/dev/my-project/docker-compose.yml ✅ FOUND
+   /path/to/my-project/src/docker-compose.yml ❌
+   /path/to/my-project/docker-compose.yml ✅ FOUND
 
 2. Parses structure:
    Project name: my-project
@@ -239,7 +239,7 @@ class PostgreSQLAdapter implements DatabaseAdapter {
   async backup(service: string, options: BackupOptions): Promise<string> {
     const conn = this.getConnectionInfo(service);
     const format = options.format || 'custom';
-    const output = options.output || `/tmp/backup-${Date.now()}.dump`;
+    const output = options.output || `./backup-${Date.now()}.dump`;
     
     const command = `pg_dump -U ${conn.user} -d ${conn.database} -F ${format} -f ${output}`;
     await dockerExec(service, command);
@@ -289,7 +289,7 @@ class RedisAdapter implements DatabaseAdapter {
     await this.query(service, 'SAVE');
     
     // Copy dump.rdb from container
-    const output = options.output || `/tmp/redis-backup-${Date.now()}.rdb`;
+    const output = options.output || `./redis-backup-${Date.now()}.rdb`;
     await dockerExec(service, `cp /data/dump.rdb ${output}`);
     
     return output;
@@ -313,7 +313,7 @@ class SQLiteAdapter implements DatabaseAdapter {
   
   async backup(service: string, options: BackupOptions): Promise<string> {
     const dbPath = this.getDatabasePath(service);
-    const output = options.output || `/tmp/sqlite-backup-${Date.now()}.db`;
+    const output = options.output || `./sqlite-backup-${Date.now()}.db`;
     
     await dockerExec(service, `sqlite3 ${dbPath} ".backup ${output}"`);
     return output;
