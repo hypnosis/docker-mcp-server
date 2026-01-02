@@ -134,8 +134,8 @@ async function main() {
       return envTools.handleCall(request);
     }
 
-    // Container tools (including compose up/down commands)
-    if (toolName.startsWith('docker_container_') || toolName === 'docker_compose_up' || toolName === 'docker_compose_down') {
+    // Container tools (including compose up/down commands and resource management)
+    if (toolName.startsWith('docker_container_') || toolName === 'docker_compose_up' || toolName === 'docker_compose_down' || toolName === 'docker_resource_list') {
       return containerTools.handleCall(request);
     }
 
@@ -162,7 +162,7 @@ async function main() {
   await server.connect(transport);
 
   logger.info('Docker MCP Server started successfully');
-  logger.info('Registered tools: 16 commands (7 container + 1 executor + 4 database + 3 environment + 1 mcp-health)');
+  logger.info('Registered tools: 18 commands (9 container + 1 executor + 4 database + 3 environment + 1 mcp-health)');
   logger.info('Listening on STDIO...');
 }
 

@@ -118,6 +118,12 @@
 - ✅ Работает в Cursor/Claude Desktop
 - ✅ README и примеры готовы
 
+### Post-Release Updates (v1.0.4)
+- ✅ Resource monitoring commands added (18 commands total)
+- ✅ `docker_container_stats` — CPU, Memory, Network, Block I/O monitoring
+- ✅ `docker_resource_list` — Universal command for images, volumes, networks
+- ✅ Optimized command structure to stay within Cursor MCP limits
+
 ---
 
 ## 🔄 Процесс Работы

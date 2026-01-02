@@ -30,6 +30,38 @@ export interface ContainerHealthStatus {
   failures: number;
 }
 
+export interface ImageInfo {
+  id: string;
+  tags: string[];
+  size: number;
+  created: string;
+}
+
+export interface VolumeInfo {
+  name: string;
+  driver: string;
+  mountpoint: string;
+  created: string;
+}
+
+export interface NetworkInfo {
+  id: string;
+  name: string;
+  driver: string;
+  scope: string;
+  created: string;
+}
+
+export interface ContainerStats {
+  id: string;
+  name: string;
+  cpuPercent: string;
+  memoryUsage: string;
+  memoryPercent: string;
+  netIO: string;
+  blockIO: string;
+}
+
 export class ContainerManager {
   private docker: Docker;
 
@@ -358,5 +390,132 @@ export class ContainerManager {
     name = name.replace(/^[_-]/, '').replace(/[_-]\d+$/, '');
 
     return name || containerName; // Fallback to full name
+  }
+
+  /**
+   * List Docker images
+   */
+  async listImages(): Promise<ImageInfo[]> {
+    logger.debug('Listing Docker images');
+    
+    try {
+      const images = await this.docker.listImages({ all: false });
+      
+      return images.map((img) => ({
+        id: img.Id.replace('sha256:', '').slice(0, 12),
+        tags: img.RepoTags || ['<none>'],
+        size: img.Size,
+        created: new Date(img.Created * 1000).toISOString(),
+      }));
+    } catch (error: any) {
+      logger.error('Failed to list images:', error);
+      throw new Error(`Failed to list Docker images: ${error.message}`);
+    }
+  }
+
+  /**
+   * List Docker volumes
+   */
+  async listVolumes(): Promise<VolumeInfo[]> {
+    logger.debug('Listing Docker volumes');
+    
+    try {
+      const result = await this.docker.listVolumes();
+      const volumes = result.Volumes || [];
+      
+      return volumes.map((vol) => ({
+        name: vol.Name,
+        driver: vol.Driver,
+        mountpoint: vol.Mountpoint,
+        created: (vol as any).CreatedAt || 'N/A',
+      }));
+    } catch (error: any) {
+      logger.error('Failed to list volumes:', error);
+      throw new Error(`Failed to list Docker volumes: ${error.message}`);
+    }
+  }
+
+  /**
+   * List Docker networks
+   */
+  async listNetworks(): Promise<NetworkInfo[]> {
+    logger.debug('Listing Docker networks');
+    
+    try {
+      const networks = await this.docker.listNetworks();
+      
+      return networks.map((net) => ({
+        id: net.Id.slice(0, 12),
+        name: net.Name,
+        driver: net.Driver,
+        scope: net.Scope,
+        created: net.Created || 'N/A',
+      }));
+    } catch (error: any) {
+      logger.error('Failed to list networks:', error);
+      throw new Error(`Failed to list Docker networks: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get container stats (CPU, Memory, Network, Block I/O)
+   */
+  async getContainerStats(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<ContainerStats> {
+    const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
+    
+    logger.debug(`Getting stats for: ${serviceName}`);
+    
+    try {
+      const stats = await container.stats({ stream: false });
+      
+      // Calculate CPU percentage
+      const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
+      const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+      const cpuPercent = systemDelta > 0 && cpuDelta > 0
+        ? ((cpuDelta / systemDelta) * stats.cpu_stats.online_cpus * 100).toFixed(2)
+        : '0.00';
+      
+      // Calculate memory usage
+      const memoryUsage = stats.memory_stats.usage || 0;
+      const memoryLimit = stats.memory_stats.limit || 0;
+      const memoryPercent = memoryLimit > 0
+        ? ((memoryUsage / memoryLimit) * 100).toFixed(2)
+        : '0.00';
+      
+      // Format memory usage (MB)
+      const memoryUsageMB = (memoryUsage / 1024 / 1024).toFixed(2);
+      const memoryLimitMB = (memoryLimit / 1024 / 1024).toFixed(2);
+      
+      // Network I/O
+      const networks = stats.networks || {};
+      let rxBytes = 0;
+      let txBytes = 0;
+      Object.values(networks).forEach((net: any) => {
+        rxBytes += net.rx_bytes || 0;
+        txBytes += net.tx_bytes || 0;
+      });
+      const netIO = `${(rxBytes / 1024 / 1024).toFixed(2)}MB / ${(txBytes / 1024 / 1024).toFixed(2)}MB`;
+      
+      // Block I/O
+      const blkRead = stats.blkio_stats?.io_service_bytes_recursive?.find((item: any) => item.op === 'read')?.value || 0;
+      const blkWrite = stats.blkio_stats?.io_service_bytes_recursive?.find((item: any) => item.op === 'write')?.value || 0;
+      const blockIO = `${(blkRead / 1024 / 1024).toFixed(2)}MB / ${(blkWrite / 1024 / 1024).toFixed(2)}MB`;
+      
+      const containerInfo = await container.inspect();
+      const containerName = containerInfo.Name.replace(/^\//, '');
+      
+      return {
+        id: container.id.slice(0, 12),
+        name: containerName,
+        cpuPercent: `${cpuPercent}%`,
+        memoryUsage: `${memoryUsageMB}MB / ${memoryLimitMB}MB`,
+        memoryPercent: `${memoryPercent}%`,
+        netIO,
+        blockIO,
+      };
+    } catch (error: any) {
+      logger.error(`Failed to get stats for ${serviceName}:`, error);
+      throw new Error(`Failed to get container stats: ${error.message}`);
+    }
   }
 }

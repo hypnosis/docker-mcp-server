@@ -7,8 +7,9 @@ Universal Docker MCP server for AI assistants (Cursor, Claude Desktop). Manage D
 
 ## ✨ Features
 
-- ✅ **16 MCP Commands** — Container management, database operations, environment handling
+- ✅ **18 MCP Commands** — Container management, database operations, environment handling, resource monitoring
 - ✅ **Database Support** — PostgreSQL, Redis, SQLite with extensible adapter pattern
+- ✅ **Resource Monitoring** — Container stats (CPU, Memory, Network, Block I/O), images, volumes, networks
 - ✅ **Auto-Discovery** — Automatically finds and parses `docker-compose.yml` files
 - ✅ **Security** — Automatic secrets masking in environment variables
 - ✅ **Follow Logs** — Real-time log streaming with `follow` mode
@@ -111,11 +112,24 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 | `docker_compose_config` | Show parsed compose config | `docker_compose_config()` |
 | `docker_healthcheck` | Check health of all services | `docker_healthcheck()` |
 
+### Resource Monitoring (2 commands)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `docker_container_stats` | Get container resource usage | `docker_container_stats("web")` |
+| `docker_resource_list` | List Docker resources | `docker_resource_list("images")` |
+
 ### Universal Executor (1 command)
 
 | Command | Description | Example |
 |---------|-------------|---------|
 | `docker_exec` | Execute any command in container | `docker_exec("web", "npm test")` |
+
+### MCP Health (1 command)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `docker_mcp_health` | Server diagnostics | `docker_mcp_health()` |
 
 ## 💡 Usage Examples
 

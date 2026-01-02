@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.4] - 2026-01-02
+
+### Added
+
+- **Resource Monitoring** — New commands for monitoring Docker resources
+  - `docker_container_stats` — Get real-time container resource usage (CPU, Memory, Network, Block I/O)
+  - `docker_resource_list` — Universal command to list Docker images, volumes, or networks
+  - Provides comprehensive metrics for container performance monitoring
+  - Supports filtering by resource type (images, volumes, networks)
+
+### Changed
+
+- **Command Count** — Increased from 16 to 18 commands
+  - Optimized command structure to stay within Cursor MCP limits
+  - Used universal `docker_resource_list` instead of 3 separate commands
+
+---
+
 ## [1.0.3] - 2026-01-02
 
 ### Changed

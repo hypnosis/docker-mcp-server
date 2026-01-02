@@ -190,6 +190,39 @@ export class ContainerTools {
           },
         },
       },
+      {
+        name: 'docker_resource_list',
+        description: 'List Docker resources (images, volumes, or networks)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['images', 'volumes', 'networks'],
+              description: 'Type of resource to list',
+            },
+          },
+          required: ['type'],
+        },
+      },
+      {
+        name: 'docker_container_stats',
+        description: 'Get container resource usage statistics (CPU, Memory, Network, Block I/O)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            service: {
+              type: 'string',
+              description: 'Service name from docker-compose.yml',
+            },
+            project: {
+              type: 'string',
+              description: 'Project name (auto-detected if not provided)',
+            },
+          },
+          required: ['service'],
+        },
+      },
     ];
   }
 
@@ -221,6 +254,12 @@ export class ContainerTools {
         
         case 'docker_compose_down':
           return await this.handleComposeDown(args);
+        
+        case 'docker_resource_list':
+          return await this.handleResourceList(args);
+        
+        case 'docker_container_stats':
+          return await this.handleStats(args);
         
         default:
           throw new Error(`Unknown tool: ${name}`);
@@ -406,6 +445,54 @@ export class ContainerTools {
         {
           type: 'text',
           text: '✅ All services stopped successfully',
+        },
+      ],
+    };
+  }
+
+  private async handleResourceList(args: any) {
+    if (!args.type) {
+      throw new Error('type parameter is required (images, volumes, or networks)');
+    }
+
+    let resources;
+    switch (args.type) {
+      case 'images':
+        resources = await this.containerManager.listImages();
+        break;
+      case 'volumes':
+        resources = await this.containerManager.listVolumes();
+        break;
+      case 'networks':
+        resources = await this.containerManager.listNetworks();
+        break;
+      default:
+        throw new Error(`Invalid resource type: ${args.type}. Must be one of: images, volumes, networks`);
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(resources, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleStats(args: any) {
+    if (!args.service) {
+      throw new Error('service parameter is required');
+    }
+
+    const project = await this.getProject(args?.project);
+    const stats = await this.containerManager.getContainerStats(args.service, project.name, project.composeFile, project.projectDir);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(stats, null, 2),
         },
       ],
     };
