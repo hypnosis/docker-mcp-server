@@ -7,16 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2025-01-01
+## [1.0.0] - 2026-01-02
 
 ### Added
 
 #### Core Features
-- **15 MCP Commands** for Docker container management
+- **16 MCP Commands** for Docker container management
   - Container Management (7): `docker_container_list`, `docker_container_start`, `docker_container_stop`, `docker_container_restart`, `docker_container_logs`, `docker_compose_up`, `docker_compose_down`
   - Database Operations (4): `docker_db_query`, `docker_db_backup`, `docker_db_restore`, `docker_db_status`
   - Environment & Config (3): `docker_env_list`, `docker_compose_config`, `docker_healthcheck`
   - Universal Executor (1): `docker_exec`
+  - MCP Health (1): `docker_mcp_health`
+
+#### CLI Interface
+- **Command-Line Interface** (`docker-mcp-server-cli`) for direct command execution
+  - All MCP commands available via CLI
+  - Direct execution outside of MCP clients
+  - Same three-level fallback strategy for container discovery
+
+#### Container Discovery
+- **Three-Level Fallback Strategy** for reliable container discovery
+  1. Docker Compose Labels (Priority) - Direct Docker API call using `com.docker.compose.project` label
+  2. docker-compose ps CLI (Fallback 1) - For older docker-compose versions
+  3. Name-based filter (Fallback 2) - Filter by project name in container names
 
 #### Project Discovery
 - Automatic discovery of `docker-compose.yml` files
@@ -68,7 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- Complete API reference for all 15 commands
+- Complete API reference for all 16 commands
+- CLI interface documentation
+- Container discovery strategy documentation
 - Quick start guide for users
 - Developer documentation with architecture details
 - Real-world usage examples
