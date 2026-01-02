@@ -6,6 +6,7 @@
 import { existsSync } from 'fs';
 import { dirname, join, basename } from 'path';
 import { logger } from '../utils/logger.js';
+import { workspaceManager } from '../utils/workspace.js';
 import { projectConfigCache } from '../utils/cache.js';
 import { ComposeParser } from './compose-parser.js';
 import { ConfigMerger } from './config-merger.js';
@@ -54,14 +55,19 @@ export class ProjectDiscovery {
         config = await this.loadProject(options.explicitPath);
       } else {
         // Auto-detect multiple compose files
-        const cwd = options.cwd || process.cwd();
+        // Используем workspace root от MCP клиента или fallback на process.cwd()
+        const cwd = options.cwd || workspaceManager.getWorkspaceRoot() || process.cwd();
         const composeFiles = this.autoDetectFiles(cwd);
 
         if (composeFiles.length === 0) {
+          const workspaceInfo = workspaceManager.hasWorkspaceRoot() 
+            ? 'MCP workspace root' 
+            : 'process.cwd() (MCP workspace root not available)';
+          
           throw new Error(
             'docker-compose.yml not found. Please run from project directory.\n' +
             'Searched directories:\n' +
-            `  ${cwd} (and parent directories)`
+            `  ${cwd} (${workspaceInfo}) (and parent directories)`
           );
         }
 
@@ -88,7 +94,8 @@ export class ProjectDiscovery {
       return `project:${options.explicitPath}`;
     }
 
-    const cwd = options.cwd || process.cwd();
+    // Используем workspace root от MCP клиента или fallback на process.cwd()
+    const cwd = options.cwd || workspaceManager.getWorkspaceRoot() || process.cwd();
     return `project:${cwd}`;
   }
 

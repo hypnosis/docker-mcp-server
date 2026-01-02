@@ -12,6 +12,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from './utils/logger.js';
 import { getDockerClient } from './utils/docker-client.js';
+import { workspaceManager } from './utils/workspace.js';
 import { ContainerTools } from './tools/container-tools.js';
 import { ExecutorTool } from './tools/executor-tool.js';
 import { DatabaseTools } from './tools/database-tools.js';
@@ -69,6 +70,35 @@ async function main() {
     }
   );
 
+  // Setup workspace root from MCP client
+  server.oninitialized = async () => {
+    logger.info('MCP Server initialized, requesting workspace roots...');
+    
+    try {
+      // Request workspace roots from client
+      const clientCapabilities = server.getClientCapabilities();
+      
+      // Проверяем, поддерживает ли клиент roots
+      if (clientCapabilities?.roots) {
+        const rootsResult = await server.listRoots();
+        
+        if (rootsResult.roots && rootsResult.roots.length > 0) {
+          // Используем первый root как workspace root
+          const primaryRoot = rootsResult.roots[0];
+          workspaceManager.setWorkspaceRoot(primaryRoot.uri);
+          logger.info(`Using workspace root: ${primaryRoot.uri} (${primaryRoot.name || 'unnamed'})`);
+        } else {
+          logger.warn('No workspace roots provided by client, using process.cwd()');
+        }
+      } else {
+        logger.warn('Client does not support roots capability, using process.cwd()');
+      }
+    } catch (error: any) {
+      logger.error('Failed to get workspace roots:', error);
+      logger.warn('Falling back to process.cwd()');
+    }
+  };
+
   // Register tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     logger.debug('ListTools request received');
@@ -90,8 +120,13 @@ async function main() {
 
     const toolName = request.params.name;
 
-    // Container tools
-    if (toolName.startsWith('docker_container_')) {
+    // Environment tools (check BEFORE docker_compose_ to catch docker_compose_config)
+    if (toolName.startsWith('docker_env_') || toolName === 'docker_compose_config' || toolName === 'docker_healthcheck') {
+      return envTools.handleCall(request);
+    }
+
+    // Container tools (including compose up/down commands)
+    if (toolName.startsWith('docker_container_') || toolName === 'docker_compose_up' || toolName === 'docker_compose_down') {
       return containerTools.handleCall(request);
     }
 
@@ -103,11 +138,6 @@ async function main() {
     // Database tools
     if (toolName.startsWith('docker_db_')) {
       return databaseTools.handleCall(request);
-    }
-
-    // Environment tools
-    if (toolName.startsWith('docker_env_') || toolName === 'docker_compose_config' || toolName === 'docker_healthcheck') {
-      return envTools.handleCall(request);
     }
 
     // MCP Health tool

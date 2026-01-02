@@ -6,6 +6,7 @@
 import { ComposeExec } from '../utils/compose-exec.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
+import { extractPortFromError, findContainerByPort, stopContainerById } from '../utils/port-utils.js';
 
 export interface ComposeUpOptions {
   build?: boolean;
@@ -59,10 +60,49 @@ export class ComposeManager {
     }
 
     logger.info('Starting services with docker-compose up');
-    ComposeExec.run(project.composeFile, args, {
-      cwd: project.projectDir,
-    });
-    logger.info('Services started successfully');
+    
+    try {
+      ComposeExec.run(project.composeFile, args, {
+        cwd: project.projectDir,
+      });
+      logger.info('Services started successfully');
+    } catch (error: any) {
+      const errorMessage = error.message || String(error);
+      
+      logger.debug('Error message for port detection:', errorMessage);
+      
+      // Проверяем, является ли это ошибкой занятого порта
+      const port = extractPortFromError(errorMessage);
+      
+      logger.debug(`Extracted port from error: ${port}`);
+      
+      if (port) {
+        logger.warn(`Port ${port} is already in use. Attempting to find and handle conflict...`);
+        
+        const conflict = await findContainerByPort(port);
+        
+        if (conflict) {
+          const suggestion = `Port ${port} is already allocated by container "${conflict.containerName}" (${conflict.containerId.substring(0, 12)}). ` +
+            `Status: ${conflict.status}. ` +
+            `You can stop it with: docker_container_stop({service: "${conflict.containerName}"}) or manually stop the container.`;
+          
+          throw new Error(
+            `Port conflict detected: ${suggestion}\n\n` +
+            `Original error: ${errorMessage}`
+          );
+        } else {
+          // Порт занят, но контейнер не найден (возможно, не через Docker)
+          throw new Error(
+            `Port ${port} is already in use, but conflicting container not found via Docker API. ` +
+            `Please check if another process is using port ${port}.\n\n` +
+            `Original error: ${errorMessage}`
+          );
+        }
+      }
+      
+      // Если это не ошибка порта, пробрасываем оригинальную ошибку
+      throw error;
+    }
   }
 
   /**

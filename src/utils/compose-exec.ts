@@ -33,7 +33,26 @@ export class ComposeExec {
       return output;
     } catch (error: any) {
       logger.error('docker-compose command failed:', error);
-      const errorMessage = error.message || String(error);
+      
+      // Извлекаем полное сообщение об ошибке (включая stderr)
+      let errorMessage = error.message || String(error);
+      
+      // Если есть stderr, добавляем его к сообщению
+      if (error.stderr) {
+        const stderr = error.stderr.toString ? error.stderr.toString() : String(error.stderr);
+        if (stderr && !errorMessage.includes(stderr)) {
+          errorMessage = `${errorMessage}\n${stderr}`;
+        }
+      }
+      
+      // Если есть stdout (может содержать полезную информацию)
+      if (error.stdout) {
+        const stdout = error.stdout.toString ? error.stdout.toString() : String(error.stdout);
+        if (stdout && stdout.trim()) {
+          errorMessage = `${errorMessage}\n${stdout}`;
+        }
+      }
+      
       throw new Error(`docker-compose failed: ${errorMessage}`);
     }
   }
