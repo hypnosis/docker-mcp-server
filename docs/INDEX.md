@@ -43,12 +43,13 @@ This directory contains complete documentation for the **Docker MCP Server** pro
 
 ### 3. [API_REFERENCE.md](./API_REFERENCE.md) — Complete Command Reference
 
-**Detailed reference for all 15 commands**
+**Detailed reference for all 16 commands**
 
 - Container Management (7 commands)
 - Database Operations (4 commands)
 - Environment & Config (3 commands)
 - Universal Executor (1 command)
+- MCP Health (1 command)
 - Parameters, options, examples
 - Error handling
 
@@ -61,7 +62,7 @@ This directory contains complete documentation for the **Docker MCP Server** pro
 **Design philosophy and trade-offs**
 
 - Core philosophy
-- Why 15 commands?
+- Why 16 commands?
 - Why auto-discovery?
 - Why adapter pattern?
 - Why TypeScript?

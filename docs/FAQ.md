@@ -81,12 +81,13 @@ Then restart Claude Desktop.
 
 ### Q: What commands are available?
 
-**A:** 15 MCP commands total:
+**A:** 16 MCP commands total:
 
 - **Container Management (7):** list, start, stop, restart, logs, compose up, compose down
 - **Database Operations (4):** query, backup, restore, status
 - **Environment & Config (3):** env_list, compose_config, healthcheck
 - **Universal Executor (1):** docker_exec
+- **MCP Health (1):** docker_mcp_health
 
 See [API Reference](./API_REFERENCE.md) for complete documentation.
 

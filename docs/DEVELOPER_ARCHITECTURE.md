@@ -86,6 +86,7 @@
 │  • 4 database команд                                        │
 │  • 3 environment команд                                     │
 │  • 1 universal executor                                     │
+│  • 1 MCP health tool                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -124,7 +125,10 @@ docker-mcp-server/
 │   │   ├── container-tools.ts            #   7 container команд
 │   │   ├── database-tools.ts             #   4 database команд
 │   │   ├── env-tools.ts                  #   3 environment команд
-│   │   └── executor-tool.ts              #   1 universal команда
+│   │   ├── executor-tool.ts              #   1 universal команда
+│   │   └── mcp-health-tool.ts           #   1 MCP health команда
+│   │
+│   └── cli.ts                            # 💻 CLI Interface
 │   │
 │   └── utils/                            # 🔧 Utilities
 │       ├── docker-client.ts              #   Dockerode client

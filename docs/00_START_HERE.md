@@ -50,7 +50,7 @@ AI: docker_db_query("postgres", "SELECT COUNT(*) FROM users WHERE active=true;")
 
 ✅ **Universal** — Works with ANY Docker project
 ✅ **Auto-Discovery** — Zero configuration needed
-✅ **15 Commands** — Container, database, environment management
+✅ **16 Commands** — Container, database, environment management + CLI interface
 ✅ **3 Databases** — PostgreSQL, Redis, SQLite (extensible)
 ✅ **Secure** — Automatic secrets masking
 ✅ **Follow Logs** — Real-time log streaming
@@ -222,10 +222,11 @@ touch src/tools/{container-tools.ts,database-tools.ts,env-tools.ts,executor-tool
 - Not tied to specific frameworks
 - Maximum reusability
 
-### Why 15 Commands?
+### Why 16 Commands?
 - Covers 95% of use cases
 - Easy to learn and remember
 - `docker_exec` provides unlimited extensibility
+- CLI interface for direct command execution
 
 ### Why Auto-Discovery?
 - Zero configuration

@@ -60,7 +60,7 @@ This index helps you quickly find the right documentation for your needs.
 
 | Document | Purpose | When to Read |
 |----------|---------|--------------|
-| [API_REFERENCE.md](../API_REFERENCE.md) | All 15 MCP commands | Implementing commands |
+| [API_REFERENCE.md](../API_REFERENCE.md) | All 16 MCP commands | Implementing commands |
 | [DATABASE_ADAPTERS.md](../DATABASE_ADAPTERS.md) | Creating database adapters | Adding database support |
 | [EXAMPLES.md](../EXAMPLES.md) | Real-world usage examples | Understanding use cases |
 

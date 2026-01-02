@@ -35,7 +35,7 @@
 ## ✅ Что УЖЕ СДЕЛАНО (из предыдущих спринтов)
 
 ### Sprint 1-3 завершены:
-- ✅ **15 MCP команд** реализованы (6 container + 1 executor + 4 database + 3 environment + 1 health)
+- ✅ **16 MCP команд** реализованы (7 container + 1 executor + 4 database + 3 environment + 1 health)
 - ✅ **Database Adapters** (PostgreSQL, Redis, SQLite)
 - ✅ **Project Discovery** с multi-compose support
 - ✅ **Environment Manager** с маскированием секретов
@@ -412,7 +412,7 @@ npx @hypnosis/docker-mcp-server
 ## [1.0.0] - 2025-12-31
 
 ### Added
-- 15 MCP commands for Docker container management
+- 16 MCP commands for Docker container management + CLI interface
 - Database adapters (PostgreSQL, Redis, SQLite)
 - Project auto-discovery
 - Environment variable management

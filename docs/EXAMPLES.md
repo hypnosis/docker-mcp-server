@@ -377,6 +377,47 @@ docker_compose_up({scale: {user-service: 3}})
 
 ---
 
+## CLI Interface Usage
+
+### Direct Command Execution
+
+The Docker MCP Server includes a CLI interface for direct command execution outside of MCP clients:
+
+```bash
+# List containers
+docker-mcp-server-cli ps
+
+# Start services
+docker-mcp-server-cli up
+
+# Execute command in container
+docker-mcp-server-cli exec python "python --version"
+
+# View logs
+docker-mcp-server-cli logs redis --lines 10
+
+# Restart container
+docker-mcp-server-cli container-restart python
+
+# Environment variables
+docker-mcp-server-cli env-list
+
+# Health check
+docker-mcp-server-cli healthcheck
+```
+
+### Container Discovery Strategy
+
+The CLI uses the same three-level fallback as the MCP server:
+
+1. **Docker Compose Labels** (Priority) - Direct Docker API call using `com.docker.compose.project` label
+2. **docker-compose ps CLI** (Fallback 1) - For older docker-compose versions
+3. **Name-based filter** (Fallback 2) - Filter by project name in container names
+
+This ensures reliable container discovery across different Docker Compose versions and configurations.
+
+---
+
 ## Common Workflows
 
 ### Morning Startup

@@ -8,6 +8,8 @@
 - [Database Operations](#database-operations)
 - [Environment & Config](#environment--config)
 - [Universal Executor](#universal-executor)
+- [MCP Health](#mcp-health)
+- [CLI Interface](#cli-interface)
 
 ---
 
@@ -906,6 +908,66 @@ interface MCPError {
   }
 }
 ```
+
+---
+
+## MCP Health
+
+### docker_mcp_health
+
+Check the health status of the MCP server and its dependencies.
+
+**Signature:**
+```typescript
+docker_mcp_health(): Promise<HealthStatus>
+```
+
+**Returns:**
+```typescript
+interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  docker: { connected: boolean; version?: string };
+  project: { found: boolean; path?: string };
+  adapters: { registered: number; available: string[] };
+  cache: { enabled: boolean; size?: number };
+}
+```
+
+**Example:**
+```typescript
+docker_mcp_health()
+```
+
+---
+
+## CLI Interface
+
+The Docker MCP Server includes a CLI interface for direct command execution.
+
+### Installation
+
+```bash
+npm install -g @hypnosis/docker-mcp-server
+```
+
+### Commands
+
+```bash
+docker-mcp-server-cli ps                    # List containers
+docker-mcp-server-cli up                   # Start services
+docker-mcp-server-cli exec <service> "<cmd>"  # Execute command
+docker-mcp-server-cli logs <service> [--lines N]  # View logs
+docker-mcp-server-cli env-list             # Environment variables
+docker-mcp-server-cli healthcheck          # Health check
+docker-mcp-server-cli mcp-health           # Server diagnostics
+```
+
+### Container Discovery
+
+Uses three-level fallback:
+1. Docker Compose Labels (priority)
+2. docker-compose ps CLI (fallback)
+3. Name-based filter (final fallback)
 
 ---
 

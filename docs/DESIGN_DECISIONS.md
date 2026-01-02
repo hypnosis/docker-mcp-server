@@ -41,20 +41,20 @@
 
 ## Command Set
 
-### Why 15 Commands?
+### Why 16 Commands?
 
-**Decision:** Limited set of 15 specialized commands + universal executor.
+**Decision:** Limited set of 16 specialized commands + universal executor.
 
 **Alternatives Considered:**
 
 | Approach | Commands | Pros | Cons |
 |----------|----------|------|------|
 | Minimal | 1-5 | Simple | Not user-friendly |
-| **Balanced** | **15** | **Covers 95% cases** | **Chosen** |
+| **Balanced** | **16** | **Covers 95% cases** | **Chosen** |
 | Comprehensive | 50+ | Feature-rich | Complex, hard to maintain |
 
 **Rationale:**
-- **Pareto Principle** — 15 commands cover 95% of use cases
+- **Pareto Principle** — 16 commands cover 95% of use cases
 - **Learnability** — Easy to remember and discover
 - **Extensibility** — `docker_exec` provides unlimited flexibility
 - **Maintenance** — Reasonable codebase size
@@ -79,6 +79,9 @@ Environment (3)           — Configuration management
 
 Universal (1)             — Unlimited extensibility
 └─ exec (runs anything)
+
+MCP Health (1)            — Server diagnostics
+└─ mcp_health (system status)
 ```
 
 ### Why docker_exec is Critical

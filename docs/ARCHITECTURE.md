@@ -15,9 +15,10 @@
 - **Modular design** — Each component is independent and testable
 
 ### 3. Minimalism
-- **15 essential commands** — Covers 95% of use cases
+- **16 essential commands** — Covers 95% of use cases
 - **No duplication** — Complex scenarios handled through `docker_exec`
 - **Clean API** — Intuitive naming and consistent parameters
+- **CLI Interface** — Direct command execution outside MCP clients
 
 ---
 
@@ -438,13 +439,34 @@ class PathValidator {
 
 ### Container Manager
 
+**Container Discovery Strategy (Three-Level Fallback):**
+
 ```typescript
 class ContainerManager {
-  async list(project: string): Promise<Container[]> {
-    const output = await exec(
-      `docker ps -a --filter "name=${project}" --format json`
-    );
-    return JSON.parse(output);
+  async listContainers(projectName: string, composeFile?: string, projectDir?: string): Promise<Container[]> {
+    // Level 1: Docker Compose Labels (Priority - Direct Docker API call)
+    const containers = await this.docker.listContainers({
+      all: true,
+      filters: {
+        label: [`com.docker.compose.project=${projectName}`]
+      }
+    });
+    
+    if (containers.length > 0) {
+      return containers.map(c => this.mapContainerInfo(c, projectName));
+    }
+    
+    // Level 2: docker-compose ps CLI (Fallback for older versions)
+    if (composeFile && projectDir) {
+      const output = ComposeExec.run(composeFile, ['ps', '--format', 'json'], { cwd: projectDir });
+      // Parse and map containers...
+    }
+    
+    // Level 3: Name-based filter (Final fallback)
+    return await this.docker.listContainers({
+      all: true,
+      filters: { name: [projectName] }
+    });
   }
   
   async start(service: string, project: string): Promise<void> {
@@ -538,7 +560,7 @@ class ComposeManager {
 
 ## 🎯 Design Trade-offs
 
-### Why 15 Commands?
+### Why 16 Commands?
 
 **Decision:** Limited set of specialized commands + universal executor
 
@@ -547,10 +569,11 @@ class ComposeManager {
 - Only `docker_exec` (not user-friendly)
 
 **Rationale:**
-- 15 commands cover 95% of use cases
+- 16 commands cover 95% of use cases
 - `docker_exec` provides unlimited extensibility
 - Easy to learn and remember
 - Minimal maintenance burden
+- CLI interface for direct command execution
 
 ### Why Auto-Discovery?
 

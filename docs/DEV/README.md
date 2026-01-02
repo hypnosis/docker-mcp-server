@@ -34,7 +34,7 @@ This directory contains all documentation for developers who want to contribute 
 ### API & Implementation
 
 5. **[API_REFERENCE.md](../API_REFERENCE.md)** — Complete Command Reference
-   - All 15 MCP commands documented
+   - All 16 MCP commands documented
    - Parameters, options, examples
    - Error handling
 

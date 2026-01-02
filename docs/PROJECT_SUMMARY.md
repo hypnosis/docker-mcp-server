@@ -11,7 +11,7 @@
 1. **Universal** — Works with any Docker project, not tied to specific frameworks
 2. **Auto-Discovery** — Zero configuration, automatically finds and parses project structure
 3. **Extensible** — Plugin architecture for databases, easy to add new features
-4. **Minimal** — 15 essential commands cover 95% of use cases
+4. **Minimal** — 16 essential commands cover 95% of use cases
 5. **Secure** — Automatic secrets masking, optional SQL validation
 
 ---
@@ -69,6 +69,7 @@
 ```
 src/
 ├── index.ts                  # MCP server entry point
+├── cli.ts                    # CLI interface for direct commands
 ├── discovery/                # Project auto-discovery
 │   ├── project-discovery.ts  # Find and parse docker-compose.yml
 │   └── compose-parser.ts     # YAML parsing logic
@@ -78,16 +79,17 @@ src/
 │   ├── redis.ts              # Redis implementation
 │   └── sqlite.ts             # SQLite implementation
 ├── managers/                 # Core managers
-│   ├── container-manager.ts  # Docker container operations
+│   ├── container-manager.ts  # Docker container operations (with 3-level fallback)
 │   ├── compose-manager.ts    # Docker Compose operations
 │   └── env-manager.ts        # Environment variable handling
 ├── security/                 # Security layer
-│   └── secrets-masker.ts     # Automatic secret masking
+│   └── sql-validator.ts      # SQL validation (optional)
 └── tools/                    # MCP tool implementations
     ├── container-tools.ts    # Container management tools
     ├── database-tools.ts     # Database operation tools
     ├── env-tools.ts          # Environment tools
-    └── executor-tool.ts      # Universal executor
+    ├── executor-tool.ts      # Universal executor
+    └── mcp-health-tool.ts    # MCP health diagnostics
 ```
 
 ### Dependencies
@@ -105,7 +107,7 @@ src/
 
 ## 📝 Command Reference
 
-### Complete Command List (15 total)
+### Complete Command List (16 total)
 
 | Category | Command | Description |
 |----------|---------|-------------|
@@ -124,12 +126,13 @@ src/
 | | `docker_compose_config` | Show parsed config |
 | | `docker_healthcheck` | Health check all |
 | **Universal** | `docker_exec` | Execute any command |
+| **MCP Health** | `docker_mcp_health` | Server diagnostics |
 
 ---
 
 ## 🎨 Design Decisions
 
-### Why 15 Commands?
+### Why 16 Commands?
 
 **Decision:** Balanced approach between minimal and comprehensive.
 
@@ -395,7 +398,8 @@ git clone && npm install && npm link
 
 ### v1.0 Goals
 
-- ✅ 15 commands implemented
+- ✅ 16 commands implemented
+- ✅ CLI interface for direct command execution
 - ✅ 3 database adapters (PostgreSQL, Redis, SQLite)
 - ✅ 80%+ test coverage
 - ✅ Complete documentation

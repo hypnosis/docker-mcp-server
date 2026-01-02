@@ -12,7 +12,7 @@
 ### Key Features
 
 ✅ **Universal** — Works with any Docker project, auto-discovers structure  
-✅ **15 Commands** — Container management, database operations, environment handling  
+✅ **16 Commands** — Container management, database operations, environment handling  
 ✅ **Database Support** — PostgreSQL, Redis, SQLite with extensible adapter pattern  
 ✅ **Auto-Discovery** — Automatically finds and parses `docker-compose.yml`  
 ✅ **Security** — Automatic secrets masking in environment variables  

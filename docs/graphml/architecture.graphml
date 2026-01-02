@@ -27,6 +27,13 @@
       <data key="nodeColor">#FFF3E0</data>
     </node>
     
+    <!-- CLI Interface -->
+    <node id="cli">
+      <data key="nodeLabel">CLI Interface (cli.ts) ✅</data>
+      <data key="nodeType">interface</data>
+      <data key="nodeColor">#E8EAF6</data>
+    </node>
+    
     <!-- Project Discovery -->
     <node id="project-discovery">
       <data key="nodeLabel">Project Discovery ✅</data>
@@ -173,6 +180,32 @@
       <data key="edgeType">protocol</data>
     </edge>
     
+    <!-- Edges: CLI to Tools -->
+    <edge id="e1b" source="cli" target="container-tools">
+      <data key="edgeLabel">calls</data>
+      <data key="edgeType">interface</data>
+    </edge>
+    
+    <edge id="e1c" source="cli" target="executor-tool">
+      <data key="edgeLabel">calls</data>
+      <data key="edgeType">interface</data>
+    </edge>
+    
+    <edge id="e1d" source="cli" target="database-tools">
+      <data key="edgeLabel">calls</data>
+      <data key="edgeType">interface</data>
+    </edge>
+    
+    <edge id="e1e" source="cli" target="env-tools">
+      <data key="edgeLabel">calls</data>
+      <data key="edgeType">interface</data>
+    </edge>
+    
+    <edge id="e1f" source="cli" target="mcp-health-tool">
+      <data key="edgeLabel">calls</data>
+      <data key="edgeType">interface</data>
+    </edge>
+    
     <!-- Edges: MCP Server to Tools -->
     <edge id="e2" source="mcp-server" target="container-tools">
       <data key="edgeLabel">registers</data>
@@ -248,12 +281,22 @@
     
     <!-- Edges: Managers to Docker Client -->
     <edge id="e17" source="container-manager" target="docker-client">
-      <data key="edgeLabel">uses</data>
+      <data key="edgeLabel">uses (Docker API with labels filter)</data>
       <data key="edgeType">dependency</data>
     </edge>
     
     <edge id="e17b" source="compose-manager" target="compose-exec">
       <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e17e" source="container-manager" target="compose-exec">
+      <data key="edgeLabel">uses (fallback for listContainers)</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+    
+    <edge id="e17f" source="container-manager" target="docker-client">
+      <data key="edgeLabel">uses (labels filter priority)</data>
       <data key="edgeType">dependency</data>
     </edge>
     
@@ -471,6 +514,16 @@
     <edge id="e72" source="config-merger" target="logger">
       <data key="edgeLabel">logs to</data>
       <data key="edgeType">logging</data>
+    </edge>
+    
+    <edge id="e73" source="cli" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+    
+    <edge id="e74" source="cli" target="project-discovery">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
     </edge>
     
   </graph>

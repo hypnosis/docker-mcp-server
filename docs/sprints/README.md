@@ -10,10 +10,10 @@
 
 | Спринт | Название | Длительность | Статус |
 |--------|----------|--------------|--------|
-| [Sprint 1](./SPRINT_1_MVP.md) | MVP: Container Management | 1 неделя | ⏳ Планируется |
-| [Sprint 2](./SPRINT_2_DATABASES.md) | Database Adapters | 1 неделя | ⏳ Планируется |
-| [Sprint 3](./SPRINT_3_POLISH.md) | Polish: Environment + Security + Tests | 1 неделя | ⏳ Планируется |
-| [Sprint 4](./SPRINT_4_RELEASE.md) | Release: Packaging + npm Publish | 1 неделя | ⏳ Планируется |
+| [Sprint 1](./SPRINT_1_MVP.md) | MVP: Container Management | 1 неделя | ✅ Завершен |
+| [Sprint 2](./SPRINT_2_DATABASES.md) | Database Adapters | 1 неделя | ✅ Завершен |
+| [Sprint 3](./SPRINT_3_POLISH.md) | Polish: Environment + Security + Tests | 1 неделя | ✅ Завершен |
+| [Sprint 4](./SPRINT_4_RELEASE.md) | Release: Packaging + npm Publish | 1 неделя | ✅ Завершен |
 
 ---
 
@@ -69,6 +69,7 @@
 
 ---
 
-**Обновлено:** 2025-01-XX  
-**Версия:** 1.0
+**Обновлено:** 2026-01-02  
+**Версия:** 1.0.0  
+**Статус:** ✅ Все спринты завершены
 
