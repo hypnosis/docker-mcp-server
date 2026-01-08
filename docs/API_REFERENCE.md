@@ -8,6 +8,7 @@
 - [Database Operations](#database-operations)
 - [Environment & Config](#environment--config)
 - [Universal Executor](#universal-executor)
+- [Project Discovery](#project-discovery)
 - [MCP Health](#mcp-health)
 - [CLI Interface](#cli-interface)
 
@@ -908,6 +909,175 @@ interface MCPError {
   }
 }
 ```
+
+---
+
+## Project Discovery
+
+### docker_discover_projects
+
+Discover all Docker projects on remote server. Uses **Fast Mode** by default for maximum speed (~2 seconds).
+
+**Architecture (SQL-like approach):**
+- `docker_discover_projects()` = `SELECT * FROM containers` → Fast list of all projects
+- `docker_project_status("name")` = `SELECT * WHERE project="name"` → Detailed info for one project
+
+**Signature:**
+```typescript
+docker_discover_projects(options?: {
+  path?: string;
+  mode?: 'fast' | 'full';
+}): Promise<ProjectsDiscoveryResult>
+```
+
+**Parameters:**
+- `path` (optional) — Base path to search for projects. Default: from profile config or `/var/www`
+- `mode` (optional) — Discovery mode: `"fast"` (default) or `"full"`. Fast mode uses only Docker labels (~2s), full mode reads all compose files (~14s)
+
+**Returns:**
+```typescript
+interface ProjectsDiscoveryResult {
+  projects: DiscoveredProject[];
+  summary: {
+    total: number;
+    running: number;
+    partial: number;
+    stopped: number;
+  };
+}
+
+interface DiscoveredProject {
+  name: string;
+  path: string;
+  composeFile: string;
+  services: string[];
+  status: 'running' | 'partial' | 'stopped';
+  runningContainers: number;
+  totalServices: number;
+  issues: string[];
+}
+```
+
+**Example:**
+```typescript
+// Fast mode (default) - ~2 seconds, uses Docker labels only
+docker_discover_projects()
+
+// Fast mode explicitly
+docker_discover_projects({ mode: "fast" })
+
+// Full mode - ~14 seconds, reads all compose files
+docker_discover_projects({ mode: "full" })
+
+// Search in specific directory
+docker_discover_projects({ path: "/opt/docker-projects" })
+```
+
+**Fast Mode (default):**
+- Uses Docker labels for grouping containers by project
+- No compose file reading
+- Scales to 100+ containers without performance degradation
+- Returns: project name, status, container count, path from label
+
+**Full Mode:**
+- Fast mode + reads all compose files
+- Returns: all from fast mode + service lists, networks, volumes
+
+**Output:**
+```json
+{
+  "projects": [
+    {
+      "name": "gobunnygo",
+      "path": "/var/www/gobunnygo",
+      "composeFile": "/var/www/gobunnygo/docker-compose.yml",
+      "services": ["gobunnygo-prod", "gobunnygo-dev"],
+      "status": "running",
+      "runningContainers": 1,
+      "totalServices": 2,
+      "issues": []
+    },
+    {
+      "name": "alina",
+      "path": "/var/www/alina",
+      "composeFile": "/var/www/alina/docker-compose.yml",
+      "services": ["alina-bot", "alina-web", "alina-core"],
+      "status": "partial",
+      "runningContainers": 2,
+      "totalServices": 3,
+      "issues": ["alina-bot: restarting"]
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "running": 1,
+    "partial": 1,
+    "stopped": 0
+  }
+}
+```
+
+**Note:** This command only works with remote Docker (requires SSH configuration).
+
+---
+
+### docker_project_status
+
+Get detailed status for a specific project on remote server. Optimized for single project - reads compose file only for the specified project (~2-3 seconds).
+
+**How it works:**
+1. Filters containers by `com.docker.compose.project` label
+2. Gets project path from `com.docker.compose.project.working_dir` label
+3. Reads compose file ONLY for this project (no find!)
+4. Returns detailed information
+
+**Signature:**
+```typescript
+docker_project_status(options: {
+  project: string;
+  path?: string;
+}): Promise<DiscoveredProject>
+```
+
+**Parameters:**
+- `project` (required) — Project name
+- `path` (optional) — Base path to search for projects. Default: from profile config or `/var/www`
+
+**Returns:**
+```typescript
+interface DiscoveredProject {
+  name: string;
+  path: string;
+  composeFile: string;
+  services: string[];
+  status: 'running' | 'partial' | 'stopped';
+  runningContainers: number;
+  totalServices: number;
+  issues: string[];
+}
+```
+
+**Example:**
+```typescript
+// Get status for specific project
+docker_project_status({ project: "gobunnygo" })
+```
+
+**Output:**
+```json
+{
+  "name": "gobunnygo",
+  "path": "/var/www/gobunnygo",
+  "composeFile": "/var/www/gobunnygo/docker-compose.yml",
+  "services": ["gobunnygo-prod", "gobunnygo-dev"],
+  "status": "running",
+  "runningContainers": 1,
+  "totalServices": 2,
+  "issues": []
+}
+```
+
+**Note:** This command only works with remote Docker (requires SSH configuration).
 
 ---
 

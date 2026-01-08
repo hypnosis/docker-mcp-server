@@ -40,6 +40,10 @@ export class ExecutorTool {
             type: 'string',
             description: 'Working directory (optional)',
           },
+          project: {
+            type: 'string',
+            description: 'Project name (auto-detected if not provided)',
+          },
           interactive: {
             type: 'boolean',
             description: 'Interactive mode (TTY) for REPL, bash, etc.',
@@ -55,6 +59,7 @@ export class ExecutorTool {
     const args = request.params.arguments as {
       service?: string;
       command?: string;
+      project?: string;
       user?: string;
       workdir?: string;
       interactive?: boolean;
@@ -65,7 +70,9 @@ export class ExecutorTool {
         throw new Error('service and command parameters are required');
       }
 
-      const project = await this.projectDiscovery.findProject();
+      const project = await this.projectDiscovery.findProject(
+        args.project ? { explicitProjectName: args.project } : {}
+      );
       
       // Parse command string to array
       const commandParts = this.parseCommand(args.command);

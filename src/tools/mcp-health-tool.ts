@@ -12,8 +12,15 @@ import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { adapterRegistry } from '../adapters/adapter-registry.js';
 import { projectConfigCache } from '../utils/cache.js';
 import { logger } from '../utils/logger.js';
+import type { SSHConfig } from '../utils/ssh-config.js';
 
 export class MCPHealthTool {
+  private sshConfig: SSHConfig | null;
+
+  constructor(sshConfig?: SSHConfig | null) {
+    this.sshConfig = sshConfig || null;
+  }
+
   /**
    * Register health tool
    */
@@ -69,6 +76,14 @@ export class MCPHealthTool {
         status: 'ok' | 'failed';
         message?: string;
         latency?: number;
+        mode?: 'local' | 'remote';
+      };
+      ssh?: {
+        status: 'ok' | 'not_configured';
+        host?: string;
+        port?: number;
+        username?: string;
+        tunnelActive?: boolean;
       };
       discovery: {
         status: 'ok' | 'failed';
@@ -106,15 +121,32 @@ export class MCPHealthTool {
       checks.docker = {
         status: 'ok' as const,
         latency,
+        mode: this.sshConfig ? 'remote' : 'local',
       };
     } catch (error: any) {
       checks.docker = {
         status: 'failed' as const,
         message: error.message || 'Docker connection failed',
+        mode: this.sshConfig ? 'remote' : 'local',
       };
     }
 
-    // 2. Project Discovery
+    // 2. SSH Status (if configured)
+    if (this.sshConfig) {
+      checks.ssh = {
+        status: 'ok' as const,
+        host: this.sshConfig.host,
+        port: this.sshConfig.port || 22,
+        username: this.sshConfig.username,
+        tunnelActive: checks.docker.status === 'ok',
+      };
+    } else {
+      checks.ssh = {
+        status: 'not_configured' as const,
+      };
+    }
+
+    // 3. Project Discovery
     try {
       const projectDiscovery = new ProjectDiscovery();
       const project = await projectDiscovery.findProject();
@@ -132,7 +164,7 @@ export class MCPHealthTool {
       };
     }
 
-    // 3. Adapters Registry
+    // 4. Adapters Registry
     const registeredTypes = adapterRegistry.getRegisteredTypes();
     checks.adapters = {
       status: 'ok' as const,
@@ -140,14 +172,14 @@ export class MCPHealthTool {
       count: registeredTypes.length,
     };
 
-    // 4. Cache Status
+    // 5. Cache Status
     checks.cache = {
       status: 'ok' as const,
       size: projectConfigCache.size(),
       ttl: 60, // seconds (hardcoded, as not exported in Cache)
     };
 
-    // 5. Memory Usage
+    // 6. Memory Usage
     const mem = process.memoryUsage();
     const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
     const heapTotalMB = Math.round(mem.heapTotal / 1024 / 1024);

@@ -1,0 +1,22 @@
+{
+  "default": "production",
+  "profiles": {
+    "production": {
+      "host": "prod.example.com",
+      "username": "deployer",
+      "port": 22,
+      "privateKeyPath": "~/.ssh/id_rsa_prod"
+    },
+    "staging": {
+      "host": "staging.example.com",
+      "username": "deployer",
+      "port": 2222,
+      "privateKeyPath": "~/.ssh/id_rsa_staging"
+    },
+    "development": {
+      "host": "dev.example.com",
+      "username": "developer",
+      "port": 22
+    }
+  }
+}

@@ -649,5 +649,147 @@ docker_exec("web", "df -h")
 
 ---
 
-**Real-world examples for Docker MCP Server v1.0.0**
+## Remote Docker Management
+
+### Production Server Management
+
+**Setup:**
+Configure SSH access in Cursor Secrets or MCP config:
+```json
+{
+  "DOCKER_SSH_HOST": "prod.example.com",
+  "DOCKER_SSH_USER": "deployer",
+  "DOCKER_SSH_KEY": "/Users/me/.ssh/id_rsa_prod"
+}
+```
+
+**Daily Operations:**
+
+```typescript
+// Check production containers
+docker_container_list()
+// Lists containers on remote production server
+
+// View production logs
+docker_container_logs("api", {lines: 100})
+docker_container_logs("worker", {follow: true})
+
+// Restart service after deployment
+docker_container_restart("api")
+
+// Check production database
+docker_db_query("postgres", "SELECT COUNT(*) FROM users;")
+
+// Create production backup
+docker_db_backup("postgres", "./backups/prod-2024-12-31.sql")
+
+// Monitor resource usage
+docker_container_stats("api")
+```
+
+### Multi-Environment Management
+
+**Setup with Profiles:**
+```json
+{
+  "DOCKER_SSH_PROFILE": "production",
+  "DOCKER_SSH_PROFILES": "{\"production\":{\"host\":\"prod.com\",\"username\":\"deployer\"},\"staging\":{\"host\":\"staging.com\",\"username\":\"deployer\"}}"
+}
+```
+
+**Workflow:**
+
+```typescript
+// Switch to staging (update DOCKER_SSH_PROFILE to "staging")
+// Restart Cursor to apply changes
+
+// Test on staging first
+docker_compose_up({build: true})
+docker_exec("web", "npm test")
+docker_db_query("postgres", "SELECT * FROM test_users;")
+
+// Switch to production (update DOCKER_SSH_PROFILE to "production")
+// Deploy after staging tests pass
+docker_compose_up({build: true})
+```
+
+### Remote Development Server
+
+**Scenario:** Team shares a remote development server
+
+```typescript
+// Connect to shared dev server
+// (SSH config in MCP settings)
+
+// Start development environment
+docker_compose_up({build: true, detach: true})
+
+// Run tests remotely
+docker_exec("web", "npm test")
+
+// Check logs from remote
+docker_container_logs("web", {follow: true, lines: 50})
+
+// Database work on remote
+docker_db_query("postgres", "SELECT * FROM migrations;")
+docker_exec("api", "python manage.py migrate")
+```
+
+### CI/CD Integration
+
+**Using Remote Docker in CI/CD:**
+
+```yaml
+# .github/workflows/deploy.yml
+env:
+  DOCKER_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+  DOCKER_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+  DOCKER_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+```
+
+**Deployment Script:**
+
+```typescript
+// Pre-deployment checks
+docker_healthcheck()
+docker_db_status("postgres")
+
+// Create backup
+docker_db_backup("postgres", "./backups/pre-deploy.sql")
+
+// Deploy
+docker_compose_up({build: true})
+
+// Post-deployment verification
+docker_healthcheck()
+docker_container_logs("web", {lines: 20})
+```
+
+### Troubleshooting Remote Servers
+
+```typescript
+// Check connection
+docker_mcp_health()
+// Should show: "SSH configuration loaded for remote Docker: example.com:22"
+
+// View remote container status
+docker_container_list()
+docker_healthcheck()
+
+// Check remote logs for errors
+docker_container_logs("api", {lines: 100, timestamps: true})
+
+// Remote database diagnostics
+docker_db_status("postgres")
+docker_db_query("postgres", "SELECT * FROM pg_stat_activity;")
+
+// Execute diagnostic commands remotely
+docker_exec("web", "df -h")  // Disk space
+docker_exec("web", "free -m") // Memory
+docker_exec("web", "uptime")  // System uptime
+```
+
+---
+
+**Real-world examples for Docker MCP Server v1.1.0**
 

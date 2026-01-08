@@ -6,6 +6,8 @@
 import type Docker from 'dockerode';
 import { logger } from '../utils/logger.js';
 import { getDockerClient } from '../utils/docker-client.js';
+import { retryWithTimeout, createNetworkRetryPredicate } from '../utils/retry.js';
+import type { SSHConfig } from '../utils/ssh-config.js';
 
 export interface ContainerInfo {
   id: string;
@@ -64,10 +66,26 @@ export interface ContainerStats {
 
 export class ContainerManager {
   private docker: Docker;
+  private isRemote: boolean;
 
-  constructor() {
-    const client = getDockerClient();
+  constructor(sshConfig?: SSHConfig | null) {
+    this.isRemote = !!sshConfig;
+    const client = getDockerClient(sshConfig);
     this.docker = client.getClient();
+  }
+
+  /**
+   * Execute Docker API call with retry for remote connections
+   */
+  private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.isRemote) {
+      return retryWithTimeout(fn, {
+        maxAttempts: 3,
+        timeout: 30000,
+        shouldRetry: createNetworkRetryPredicate(),
+      });
+    }
+    return fn();
   }
 
   /**
@@ -76,14 +94,16 @@ export class ContainerManager {
   async listContainers(projectName: string, composeFile?: string, projectDir?: string): Promise<ContainerInfo[]> {
     logger.debug(`Listing containers for project: ${projectName}`);
 
-    // Option 1: Use Docker Compose labels (direct Docker API call)
+    // Option 1: Use Docker Compose labels (direct Docker API call with retry)
     try {
-      const containers = await this.docker.listContainers({
-        all: true,
-        filters: {
-          label: [`com.docker.compose.project=${projectName}`],
-        },
-      });
+      const containers = await this.withRetry(() => 
+        this.docker.listContainers({
+          all: true,
+          filters: {
+            label: [`com.docker.compose.project=${projectName}`],
+          },
+        })
+      );
 
       if (containers.length > 0) {
         logger.debug(`Found ${containers.length} containers via Docker Compose labels`);
@@ -118,9 +138,11 @@ export class ContainerManager {
         if (composeContainers.length > 0) {
           logger.debug(`Found ${composeContainers.length} containers via docker-compose ps`);
           
-          // Get full container information via Docker API
+          // Get full container information via Docker API with retry
           const containerNames = composeContainers.map(c => c.Name);
-          const allContainers = await this.docker.listContainers({ all: true });
+          const allContainers = await this.withRetry(() => 
+            this.docker.listContainers({ all: true })
+          );
           
           const projectContainers = allContainers.filter(c => {
             const name = c.Names[0]?.replace(/^\//, '') || '';
@@ -140,14 +162,16 @@ export class ContainerManager {
       }
     }
 
-    // Fallback 2: Filter by project name in container name
+    // Fallback 2: Filter by project name in container name with retry
     logger.debug('Using name-based filter as final fallback');
-    const containers = await this.docker.listContainers({
-      all: true,
-      filters: {
-        name: [projectName],
-      },
-    });
+    const containers = await this.withRetry(() =>
+      this.docker.listContainers({
+        all: true,
+        filters: {
+          name: [projectName],
+        },
+      })
+    );
 
     return containers.map((c) => this.mapContainerInfo(c, projectName));
   }
@@ -159,7 +183,7 @@ export class ContainerManager {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     logger.info(`Starting container: ${serviceName}`);
-    await container.start();
+    await this.withRetry(() => container.start());
     logger.info(`Container ${serviceName} started successfully`);
   }
 
@@ -170,7 +194,7 @@ export class ContainerManager {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     logger.info(`Stopping container: ${serviceName}`);
-    await container.stop({ t: timeout });
+    await this.withRetry(() => container.stop({ t: timeout }));
     logger.info(`Container ${serviceName} stopped successfully`);
   }
 
@@ -181,7 +205,7 @@ export class ContainerManager {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     logger.info(`Restarting container: ${serviceName}`);
-    await container.restart({ t: timeout });
+    await this.withRetry(() => container.restart({ t: timeout }));
     logger.info(`Container ${serviceName} restarted successfully`);
   }
 
@@ -235,7 +259,7 @@ export class ContainerManager {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     try {
-      const info = await container.inspect();
+      const info = await this.withRetry(() => container.inspect());
       
       // If container is not running
       if (info.State.Status !== 'running') {
@@ -288,16 +312,18 @@ export class ContainerManager {
       logger.debug('Interactive mode (TTY) enabled');
     }
 
-    const exec = await container.exec({
-      Cmd: command,
-      AttachStdout: true,
-      AttachStderr: true,
-      AttachStdin: options.interactive || false,
-      Tty: options.interactive || false,
-      User: options.user,
-      WorkingDir: options.workdir,
-      Env: options.env,
-    });
+    const exec = await this.withRetry(() => 
+      container.exec({
+        Cmd: command,
+        AttachStdout: true,
+        AttachStderr: true,
+        AttachStdin: options.interactive || false,
+        Tty: options.interactive || false,
+        User: options.user,
+        WorkingDir: options.workdir,
+        Env: options.env,
+      })
+    );
 
     const stream = await exec.start({
       hijack: options.interactive || false,
@@ -399,7 +425,9 @@ export class ContainerManager {
     logger.debug('Listing Docker images');
     
     try {
-      const images = await this.docker.listImages({ all: false });
+      const images = await this.withRetry(() => 
+        this.docker.listImages({ all: false })
+      );
       
       return images.map((img) => ({
         id: img.Id.replace('sha256:', '').slice(0, 12),
@@ -420,7 +448,9 @@ export class ContainerManager {
     logger.debug('Listing Docker volumes');
     
     try {
-      const result = await this.docker.listVolumes();
+      const result = await this.withRetry(() =>
+        this.docker.listVolumes()
+      );
       const volumes = result.Volumes || [];
       
       return volumes.map((vol) => ({
@@ -442,7 +472,9 @@ export class ContainerManager {
     logger.debug('Listing Docker networks');
     
     try {
-      const networks = await this.docker.listNetworks();
+      const networks = await this.withRetry(() =>
+        this.docker.listNetworks()
+      );
       
       return networks.map((net) => ({
         id: net.Id.slice(0, 12),
@@ -466,7 +498,7 @@ export class ContainerManager {
     logger.debug(`Getting stats for: ${serviceName}`);
     
     try {
-      const stats = await container.stats({ stream: false });
+      const stats = await this.withRetry(() => container.stats({ stream: false }));
       
       // Calculate CPU percentage
       const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;

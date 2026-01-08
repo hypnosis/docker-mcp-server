@@ -46,6 +46,34 @@ export class ComposeParser {
   }
 
   /**
+   * Парсит docker-compose.yml из строки (для remote files)
+   */
+  parseFromString(composeContent: string, composeFilePath: string): ProjectConfig {
+    logger.debug(`Parsing compose content from: ${composeFilePath}`);
+
+    try {
+      const parsed = parseYaml(composeContent);
+
+      if (!parsed || !parsed.services) {
+        throw new Error('Invalid docker-compose.yml: missing services');
+      }
+
+      const projectDir = dirname(composeFilePath);
+      const projectName = this.extractProjectName(composeFilePath, parsed);
+
+      return {
+        name: projectName,
+        composeFile: composeFilePath,
+        projectDir,
+        services: this.parseServices(parsed.services),
+      };
+    } catch (error: any) {
+      logger.error('Failed to parse compose content:', error);
+      throw new Error(`Failed to parse ${composeFilePath}: ${error.message}`);
+    }
+  }
+
+  /**
    * Извлекает имя проекта
    */
   private extractProjectName(composeFile: string, parsed: any): string {

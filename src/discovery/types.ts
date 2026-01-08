@@ -55,4 +55,7 @@ export interface DiscoveryOptions {
   
   /** Explicit path к compose file */
   explicitPath?: string;
+  
+  /** Explicit project name (for remote Docker without local compose file) */
+  explicitProjectName?: string;
 }

@@ -33,6 +33,10 @@ export class DatabaseTools {
               type: 'string',
               description: 'Database service name from docker-compose.yml',
             },
+            project: {
+              type: 'string',
+              description: 'Project name (auto-detected if not provided)',
+            },
             query: {
               type: 'string',
               description: 'SQL query or database command',
@@ -64,6 +68,10 @@ export class DatabaseTools {
             service: {
               type: 'string',
               description: 'Database service name',
+            },
+            project: {
+              type: 'string',
+              description: 'Project name (auto-detected if not provided)',
             },
             output: {
               type: 'string',
@@ -97,6 +105,10 @@ export class DatabaseTools {
             service: {
               type: 'string',
               description: 'Database service name',
+            },
+            project: {
+              type: 'string',
+              description: 'Project name (auto-detected if not provided)',
             },
             backupPath: {
               type: 'string',
@@ -134,6 +146,10 @@ export class DatabaseTools {
             service: {
               type: 'string',
               description: 'Database service name',
+            },
+            project: {
+              type: 'string',
+              description: 'Project name (auto-detected if not provided)',
             },
           },
           required: ['service'],
@@ -184,7 +200,9 @@ export class DatabaseTools {
       throw new Error('service and query parameters are required');
     }
 
-    const project = await this.projectDiscovery.findProject();
+    const project = await this.projectDiscovery.findProject(
+      args.project ? { explicitProjectName: args.project } : {}
+    );
     const serviceConfig = project.services[args.service];
     
     if (!serviceConfig) {
@@ -215,7 +233,9 @@ export class DatabaseTools {
       throw new Error('service parameter is required');
     }
 
-    const project = await this.projectDiscovery.findProject();
+    const project = await this.projectDiscovery.findProject(
+      args.project ? { explicitProjectName: args.project } : {}
+    );
     const serviceConfig = project.services[args.service];
     
     if (!serviceConfig) {
@@ -246,7 +266,9 @@ export class DatabaseTools {
       throw new Error('service and backupPath parameters are required');
     }
 
-    const project = await this.projectDiscovery.findProject();
+    const project = await this.projectDiscovery.findProject(
+      args.project ? { explicitProjectName: args.project } : {}
+    );
     const serviceConfig = project.services[args.service];
     
     if (!serviceConfig) {
@@ -277,7 +299,9 @@ export class DatabaseTools {
       throw new Error('service parameter is required');
     }
 
-    const project = await this.projectDiscovery.findProject();
+    const project = await this.projectDiscovery.findProject(
+      args.project ? { explicitProjectName: args.project } : {}
+    );
     const serviceConfig = project.services[args.service];
     
     if (!serviceConfig) {

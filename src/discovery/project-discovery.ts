@@ -34,6 +34,18 @@ export class ProjectDiscovery {
   async findProject(options: DiscoveryOptions = {}): Promise<ProjectConfig> {
     logger.debug('Starting project discovery', options);
 
+    // Если передан явный project name, возвращаем минимальный конфиг
+    // Это для случаев когда работаем с remote и compose файла нет локально
+    if (options.explicitProjectName) {
+      logger.debug(`Using explicit project name: ${options.explicitProjectName}`);
+      return {
+        name: options.explicitProjectName,
+        composeFile: '', // Не известно для remote без compose файла
+        projectDir: '',  // Не известно для remote без compose файла
+        services: {},    // Будет заполнено через Docker API
+      };
+    }
+
     // Генерируем ключ кеша
     const cacheKey = this.getCacheKey(options);
 

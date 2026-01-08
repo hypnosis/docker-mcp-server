@@ -6,7 +6,7 @@
 
 ## 📊 Обзор
 
-Проект разбит на **4 спринта** общей длительностью **4 недели**:
+Проект разбит на **5 спринтов** общей длительностью **5 недель**:
 
 | Спринт | Название | Длительность | Статус |
 |--------|----------|--------------|--------|
@@ -14,6 +14,7 @@
 | [Sprint 2](./SPRINT_2_DATABASES.md) | Database Adapters | 1 неделя | ✅ Завершен |
 | [Sprint 3](./SPRINT_3_POLISH.md) | Polish: Environment + Security + Tests | 1 неделя | ✅ Завершен |
 | [Sprint 4](./SPRINT_4_RELEASE.md) | Release: Packaging + npm Publish | 1 неделя | ✅ Завершен |
+| [Sprint 5](./SPRINT_5_REMOTE_DOCKER.md) | Remote Docker: SSH Support | 1 неделя | 🟡 В процессе |
 
 ---
 
@@ -27,6 +28,7 @@
 - **[Sprint 2: Databases](./SPRINT_2_DATABASES.md)** — PostgreSQL, Redis, SQLite adapters
 - **[Sprint 3: Polish](./SPRINT_3_POLISH.md)** — Environment, Security, Tests
 - **[Sprint 4: Release](./SPRINT_4_RELEASE.md)** — Packaging, npm publish
+- **[Sprint 5: Remote Docker](./SPRINT_5_REMOTE_DOCKER.md)** — SSH Support, Multiple Servers, Retry Logic
 
 ---
 
@@ -69,7 +71,7 @@
 
 ---
 
-**Обновлено:** 2026-01-02  
-**Версия:** 1.0.0  
-**Статус:** ✅ Все спринты завершены
+**Обновлено:** 2026-01-08  
+**Версия:** 1.1.0  
+**Статус:** 🟡 Sprint 5 в процессе
 

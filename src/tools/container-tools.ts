@@ -11,15 +11,16 @@ import { ContainerManager } from '../managers/container-manager.js';
 import { ComposeManager } from '../managers/compose-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
+import type { SSHConfig } from '../utils/ssh-config.js';
 
 export class ContainerTools {
   private containerManager: ContainerManager;
   private composeManager: ComposeManager;
   private projectDiscovery: ProjectDiscovery;
 
-  constructor() {
-    this.containerManager = new ContainerManager();
-    this.composeManager = new ComposeManager();
+  constructor(sshConfig?: SSHConfig | null) {
+    this.containerManager = new ContainerManager(sshConfig);
+    this.composeManager = new ComposeManager(sshConfig);
     this.projectDiscovery = new ProjectDiscovery();
   }
 
@@ -502,8 +503,14 @@ export class ContainerTools {
    * Helper: get project config (auto-detect or explicit)
    */
   private async getProject(explicitName?: string) {
-    // Currently always use auto-detect
-    // In the future, can add caching by explicit name
+    // If explicit name provided, use it (for remote Docker)
+    if (explicitName) {
+      return this.projectDiscovery.findProject({
+        explicitProjectName: explicitName,
+      });
+    }
+    
+    // Otherwise, use auto-detect (local Docker)
     return this.projectDiscovery.findProject();
   }
 }

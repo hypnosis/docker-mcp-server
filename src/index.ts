@@ -14,13 +14,16 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { logger } from './utils/logger.js';
-import { getDockerClient } from './utils/docker-client.js';
+import { getDockerClient, cleanupDockerClient } from './utils/docker-client.js';
+import { loadSSHConfig } from './utils/ssh-config.js';
 import { workspaceManager } from './utils/workspace.js';
 import { ContainerTools } from './tools/container-tools.js';
 import { ExecutorTool } from './tools/executor-tool.js';
 import { DatabaseTools } from './tools/database-tools.js';
 import { EnvTools } from './tools/env-tools.js';
 import { MCPHealthTool } from './tools/mcp-health-tool.js';
+import { ProfileTool } from './tools/profile-tool.js';
+import { DiscoveryTools } from './tools/discovery-tools.js';
 import { adapterRegistry } from './adapters/adapter-registry.js';
 import { PostgreSQLAdapter } from './adapters/postgresql.js';
 import { RedisAdapter } from './adapters/redis.js';
@@ -42,9 +45,30 @@ async function main() {
   const version = packageJson.version || '1.0.0';
   logger.info(`Starting Docker MCP Server v${version}`);
 
+  // Load SSH configuration (if provided)
+  const sshConfigResult = loadSSHConfig();
+  
+  // Log errors only if config was expected but failed (not graceful fallbacks)
+  const hasNonFallbackErrors = sshConfigResult.errors.length > 0 && 
+    !sshConfigResult.errors.some(e => 
+      e.includes('not found') || 
+      e.includes('Falling back to local Docker')
+    );
+  
+  if (hasNonFallbackErrors) {
+    logger.warn('SSH configuration warnings:', sshConfigResult.errors);
+  }
+  
+  const sshConfig = sshConfigResult.config;
+  if (sshConfig) {
+    logger.info(`SSH configuration loaded for remote Docker: ${sshConfig.host}:${sshConfig.port || 22}`);
+  } else {
+    logger.info('Using local Docker (no SSH configuration provided)');
+  }
+
   // Docker check
   try {
-    const docker = getDockerClient();
+    const docker = getDockerClient(sshConfig);
     await docker.ping();
   } catch (error: any) {
     logger.error('Docker check failed:', error);
@@ -60,11 +84,13 @@ async function main() {
   logger.info('Database adapters registered: PostgreSQL, Redis, SQLite');
 
   // Initialize tools
-  const containerTools = new ContainerTools();
+  const containerTools = new ContainerTools(sshConfig);
   const executorTool = new ExecutorTool();
   const databaseTools = new DatabaseTools();
   const envTools = new EnvTools();
-  const mcpHealthTool = new MCPHealthTool();
+  const mcpHealthTool = new MCPHealthTool(sshConfig);
+  const profileTool = new ProfileTool(sshConfig, process.env.DOCKER_MCP_PROFILES_FILE);
+  const discoveryTools = new DiscoveryTools(sshConfig);
 
   // Create MCP Server
   const server = new Server(
@@ -119,6 +145,8 @@ async function main() {
         ...databaseTools.getTools(),
         ...envTools.getTools(),
         mcpHealthTool.getTool(),
+        profileTool.getTool(),
+        ...discoveryTools.getTools(),
       ],
     };
   });
@@ -154,6 +182,16 @@ async function main() {
       return mcpHealthTool.handleCall(request);
     }
 
+    // Profile tool
+    if (toolName === 'docker_profile_info') {
+      return profileTool.handleCall(request);
+    }
+
+    // Discovery tools
+    if (toolName === 'docker_discover_projects' || toolName === 'docker_project_status') {
+      return discoveryTools.handleCall(request);
+    }
+
     throw new Error(`Unknown tool: ${toolName}`);
   });
 
@@ -162,12 +200,45 @@ async function main() {
   await server.connect(transport);
 
   logger.info('Docker MCP Server started successfully');
-  logger.info('Registered tools: 18 commands (9 container + 1 executor + 4 database + 3 environment + 1 mcp-health)');
+  logger.info('Registered tools: 21 commands (9 container + 1 executor + 4 database + 3 environment + 1 mcp-health + 1 profile + 2 discovery)');
   logger.info('Listening on STDIO...');
+
+  // Setup graceful shutdown handlers
+  const shutdown = async (signal: string) => {
+    logger.info(`Received ${signal}, shutting down gracefully...`);
+    
+    // Cleanup Docker client (SSH tunnels, etc.)
+    try {
+      cleanupDockerClient();
+      logger.info('Docker client cleaned up');
+    } catch (error: any) {
+      logger.error('Error during Docker cleanup:', error.message);
+    }
+    
+    // Close server transport
+    try {
+      await server.close();
+      logger.info('MCP server closed');
+    } catch (error: any) {
+      logger.error('Error closing server:', error.message);
+    }
+    
+    logger.info('Shutdown complete');
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGHUP', () => shutdown('SIGHUP'));
+  process.on('exit', () => {
+    logger.debug('Process exiting, final cleanup...');
+    cleanupDockerClient();
+  });
 }
 
 // Error handling
 main().catch((error) => {
   logger.error('Fatal error:', error);
+  cleanupDockerClient(); // Cleanup on fatal error
   process.exit(1);
 });

@@ -7,6 +7,8 @@ import { ComposeExec } from '../utils/compose-exec.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
 import { extractPortFromError, findContainerByPort, stopContainerById } from '../utils/port-utils.js';
+import { loadSSHConfig } from '../utils/ssh-config.js';
+import type { SSHConfig } from '../utils/ssh-config.js';
 
 export interface ComposeUpOptions {
   build?: boolean;
@@ -23,9 +25,16 @@ export interface ComposeDownOptions {
 
 export class ComposeManager {
   private projectDiscovery: ProjectDiscovery;
+  private sshConfig: SSHConfig | null;
 
-  constructor() {
+  constructor(sshConfig?: SSHConfig | null) {
     this.projectDiscovery = new ProjectDiscovery();
+    // Если SSH config не передан, пытаемся загрузить из env
+    this.sshConfig = sshConfig !== undefined ? sshConfig : (loadSSHConfig().config || null);
+    
+    if (this.sshConfig) {
+      logger.debug(`ComposeManager initialized with SSH config: ${this.sshConfig.host}`);
+    }
   }
 
   /**
@@ -64,6 +73,7 @@ export class ComposeManager {
     try {
       ComposeExec.run(project.composeFile, args, {
         cwd: project.projectDir,
+        sshConfig: this.sshConfig,
       });
       logger.info('Services started successfully');
     } catch (error: any) {
@@ -132,6 +142,7 @@ export class ComposeManager {
     logger.info('Stopping services with docker-compose down');
     ComposeExec.run(project.composeFile, args, {
       cwd: project.projectDir,
+      sshConfig: this.sshConfig,
     });
     logger.info('Services stopped successfully');
   }

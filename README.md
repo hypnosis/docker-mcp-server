@@ -7,10 +7,12 @@ Universal Docker MCP server for AI assistants (Cursor, Claude Desktop). Manage D
 
 ## ✨ Features
 
-- ✅ **18 MCP Commands** — Container management, database operations, environment handling, resource monitoring
+- ✅ **21 MCP Commands** — Container management, database operations, environment handling, resource monitoring, project discovery
 - ✅ **Database Support** — PostgreSQL, Redis, SQLite with extensible adapter pattern
 - ✅ **Resource Monitoring** — Container stats (CPU, Memory, Network, Block I/O), images, volumes, networks
-- ✅ **Auto-Discovery** — Automatically finds and parses `docker-compose.yml` files
+- ✅ **Auto-Discovery** — Automatically finds and parses `docker-compose.yml` files (local and remote)
+- ✅ **Remote Docker** — SSH support for managing remote Docker hosts
+- ✅ **Remote Project Discovery** — Automatically find all Docker projects on remote servers
 - ✅ **Security** — Automatic secrets masking in environment variables
 - ✅ **Follow Logs** — Real-time log streaming with `follow` mode
 - ✅ **Type-Safe** — Written in TypeScript with full type definitions
@@ -42,6 +44,21 @@ npm install @hypnosis/docker-mcp-server
 
 Add to `~/.cursor/mcp.json` (or `~/.config/cursor/mcp.json`):
 
+**Local Docker (simplest - no configuration needed!):**
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "@hypnosis/docker-mcp-server"]
+    }
+  }
+}
+```
+
+That's it! The server will automatically detect and use your local Docker installation.
+
+**Optional: Enable auto-discovery and secret masking:**
 ```json
 {
   "mcpServers": {
@@ -56,6 +73,41 @@ Add to `~/.cursor/mcp.json` (or `~/.config/cursor/mcp.json`):
   }
 }
 ```
+
+**Remote Docker (with profiles file):**
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "@hypnosis/docker-mcp-server"],
+      "env": {
+        "DOCKER_MCP_PROFILES_FILE": "~/.docker-mcp/profiles.json"
+      }
+    }
+  }
+}
+```
+
+Create `~/.docker-mcp/profiles.json`:
+```json
+{
+  "default": "production",
+  "profiles": {
+    "production": {
+      "host": "prod.example.com",
+      "username": "deployer",
+      "port": 22,
+      "privateKeyPath": "~/.ssh/id_rsa",
+      "projectsPath": "/var/www"
+    }
+  }
+}
+```
+
+**Note:** `projectsPath` specifies where to search for Docker projects on remote server (default: `/var/www`).
+
+**Note:** If the profiles file doesn't exist or is invalid, the server will gracefully fall back to local Docker — no errors, no configuration needed!
 
 ### Configuration for Claude Desktop
 
@@ -124,6 +176,13 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 | Command | Description | Example |
 |---------|-------------|---------|
 | `docker_exec` | Execute any command in container | `docker_exec("web", "npm test")` |
+
+### Project Discovery (2 commands)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `docker_discover_projects` | Find all Docker projects on remote server | `docker_discover_projects()` |
+| `docker_project_status` | Get detailed status for a project | `docker_project_status({project: "gobunnygo"})` |
 
 ### MCP Health (1 command)
 
@@ -214,6 +273,8 @@ Keywords that trigger masking: `PASSWORD`, `TOKEN`, `KEY`, `SECRET`, `API_KEY`
 
 - **[Quick Start Guide](docs/QUICK_START.md)** — Detailed setup instructions
 - **[API Reference](docs/API_REFERENCE.md)** — Complete command documentation
+- **[Remote Docker Guide](docs/REMOTE_DOCKER.md)** — SSH-based remote Docker management
+- **[Remote Discovery Guide](docs/REMOTE_DISCOVERY.md)** — Automatic project discovery on remote servers
 - **[Examples](docs/EXAMPLES.md)** — Real-world usage scenarios
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** — Common issues and solutions
 - **[FAQ](docs/FAQ.md)** — Frequently asked questions
