@@ -13,6 +13,7 @@ export interface ContainerInfo {
   id: string;
   name: string;
   service: string;
+  project?: string;
   status: string;
   image: string;
   ports: string[];
@@ -333,10 +334,14 @@ export class ContainerManager {
       || container.Labels?.['com.docker.compose.service']
       || this.extractServiceName(fullName, projectName);
 
+    const labels = container.Labels || {};
+    const containerProject = labels['com.docker.compose.project'] || projectName;
+    
     return {
       id: container.Id,
       name: fullName,
       service: serviceName,
+      project: containerProject,
       status: container.State,
       image: container.Image,
       ports: this.extractPorts(container.Ports),

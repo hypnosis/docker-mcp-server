@@ -344,7 +344,7 @@ export class ContainerTools {
     if (!args?.project) {
       const grouped = new Map<string, typeof containers>();
       containers.forEach(c => {
-        const projectName = c.service.split('_')[0] || 'unknown';
+        const projectName = c.project || 'unknown';
         if (!grouped.has(projectName)) {
           grouped.set(projectName, []);
         }
