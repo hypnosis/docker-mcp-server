@@ -307,10 +307,8 @@ git commit -m "your message"
 
 **Почему 5 документов?**
 - Разные аудитории:
-  - Новички → TESTING_QUICK_START.md
-  - Ежедневная работа → README_TESTING.md
-  - AI тестирование → MANUAL_TEST.md
-  - Детали → TEST_SYSTEM.md
+  - Все → docs/testing/README.md (единая точка входа)
+  - AI тестирование → docs/testing/MANUAL_TEST.md
   - Overview → TESTING_SUMMARY.md
 
 **Минусы:**

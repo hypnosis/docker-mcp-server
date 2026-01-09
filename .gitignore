@@ -8,3 +8,6 @@ coverage/
 profiles.json
 test-data/web/node_modules/
 *.log
+
+# Временные тестовые скрипты
+test-*.js

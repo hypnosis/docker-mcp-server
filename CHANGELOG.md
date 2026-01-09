@@ -9,12 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.1] - 2026-01-09
 
+### Added
+
+- **Comprehensive Testing System** — Complete E2E testing framework
+  - 32 E2E tests covering all 20 MCP commands
+  - Isolated test categories for fast debugging (9 categories)
+  - Test environment with docker-compose.test.yml (web, postgres, redis)
+  - Pre-commit script for automated testing before commits
+  - Manual testing checklist for AI assistants
+  - Testing documentation unified in `docs/testing/`
+
+- **Auto-detection of working_dir** — Executor tool improvements
+  - `docker_exec` now automatically detects `working_dir` from docker-compose.yml
+  - No need to specify `workdir` if configured in compose file
+  - Backward compatible (explicit `workdir` still works)
+
 ### Fixed
 
 - **docker_container_list** — Fixed REST API behavior
   - Without `project` parameter: now shows ALL containers with Compose labels (grouped by project)
   - With `project` parameter: shows containers for specific project only
   - Previously always auto-detected project from current directory, causing empty results
+
+- **package-lock.json** — Synchronized version (1.2.1) and name (@hypnosis/docker-mcp-server)
 
 ### Changed
 
@@ -27,6 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Functionality replaced by `docker_container_list({project: "name"})`
   - Reduces API surface, follows REST principles
 
+- **Testing Documentation** — Unified and organized
+  - All testing docs moved to `docs/testing/`
+  - Single entry point: `docs/testing/README.md`
+  - Deprecated docs moved to `docs/testing/deprecated/`
+  - Archive moved to `docs/testing/archive/`
+
 ### Improved
 
 - **REST API Approach** — Simplified and more intuitive
@@ -34,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `docker_container_list()` → list all containers (grouped by project)
   - `docker_container_list({project: "x"})` → list containers for project x
   - Clearer semantics, better UX
+
+- **Project Structure** — Cleaned up root directory
+  - Removed temporary test-*.js scripts
+  - Organized documentation structure
+  - Updated .gitignore to prevent future clutter
 
 ---
 

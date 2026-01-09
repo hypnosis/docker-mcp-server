@@ -7,7 +7,7 @@ Universal Docker MCP server for AI assistants (Cursor, Claude Desktop). Manage D
 
 ## ✨ Features
 
-- ✅ **21 MCP Commands** — Container management, database operations, environment handling, resource monitoring, project discovery
+- ✅ **20 MCP Commands** — Container management, database operations, environment handling, resource monitoring, project discovery
 - ✅ **Database Support** — PostgreSQL, Redis, SQLite with extensible adapter pattern
 - ✅ **Resource Monitoring** — Container stats (CPU, Memory, Network, Block I/O), images, volumes, networks
 - ✅ **Auto-Discovery** — Automatically finds and parses `docker-compose.yml` files (local and remote)
@@ -135,60 +135,57 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 
 ## 📚 Available Commands
 
-### Container Management (7 commands)
+### Container Management (9 commands)
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `docker_container_list` | List all containers in project | `docker_container_list()` |
-| `docker_container_start` | Start a container | `docker_container_start("web")` |
-| `docker_container_stop` | Stop a container | `docker_container_stop("web")` |
-| `docker_container_restart` | Restart a container | `docker_container_restart("web")` |
-| `docker_container_logs` | View container logs | `docker_container_logs("web", {follow: true, lines: 100})` |
+| `docker_container_list` | List all containers (grouped by project) | `docker_container_list()` |
+| `docker_container_start` | Start a container | `docker_container_start({service: "web"})` |
+| `docker_container_stop` | Stop a container | `docker_container_stop({service: "web"})` |
+| `docker_container_restart` | Restart a container | `docker_container_restart({service: "web"})` |
+| `docker_container_logs` | View container logs | `docker_container_logs({service: "web", follow: true, lines: 100})` |
+| `docker_container_stats` | Get container resource usage | `docker_container_stats({service: "web"})` |
 | `docker_compose_up` | Start entire stack | `docker_compose_up({build: true})` |
 | `docker_compose_down` | Stop entire stack | `docker_compose_down({volumes: false})` |
+| `docker_resource_list` | List Docker images, volumes, or networks | `docker_resource_list({type: "images"})` |
 
 ### Database Operations (4 commands)
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `docker_db_query` | Execute SQL query | `docker_db_query("postgres", "SELECT * FROM users LIMIT 5;")` |
-| `docker_db_backup` | Create database backup | `docker_db_backup("postgres", "./backup.sql")` |
-| `docker_db_restore` | Restore from backup | `docker_db_restore("postgres", "./backup.sql")` |
-| `docker_db_status` | Show database status | `docker_db_status("postgres")` |
+| `docker_db_query` | Execute SQL query or database command | `docker_db_query({service: "postgres", query: "SELECT * FROM users LIMIT 5;"})` |
+| `docker_db_backup` | Create database backup | `docker_db_backup({service: "postgres", compress: true})` |
+| `docker_db_restore` | Restore from backup | `docker_db_restore({service: "postgres", backupPath: "./backup.sql"})` |
+| `docker_db_status` | Show database status | `docker_db_status({service: "postgres"})` |
 
 ### Environment & Config (3 commands)
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `docker_env_list` | List environment variables | `docker_env_list()` |
+| `docker_env_list` | List environment variables (with secret masking) | `docker_env_list({service: "web", maskSecrets: true})` |
 | `docker_compose_config` | Show parsed compose config | `docker_compose_config()` |
 | `docker_healthcheck` | Check health of all services | `docker_healthcheck()` |
-
-### Resource Monitoring (2 commands)
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `docker_container_stats` | Get container resource usage | `docker_container_stats("web")` |
-| `docker_resource_list` | List Docker resources | `docker_resource_list("images")` |
 
 ### Universal Executor (1 command)
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `docker_exec` | Execute any command in container | `docker_exec("web", "npm test")` |
+| `docker_exec` | Execute any command in container | `docker_exec({service: "web", command: "npm test"})` |
 
-### Project Discovery (2 commands)
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `docker_discover_projects` | Find all Docker projects on remote server | `docker_discover_projects()` |
-| `docker_project_status` | Get detailed status for a project | `docker_project_status({project: "gobunnygo"})` |
-
-### MCP Health (1 command)
+### Project Discovery (1 command)
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `docker_mcp_health` | Server diagnostics | `docker_mcp_health()` |
+| `docker_projects` | List all Docker projects with status (fast, ~2s) | `docker_projects()` |
+
+**Note:** For detailed container info, use `docker_container_list({project: "project-name"})`.
+
+### Utility Tools (2 commands)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `docker_mcp_health` | Server diagnostics and health check | `docker_mcp_health()` |
+| `docker_profile_info` | Show current profile and available profiles | `docker_profile_info()` |
 
 ## 💡 Usage Examples
 
@@ -202,32 +199,32 @@ docker_compose_up({build: true, detach: true})
 docker_healthcheck()
 
 // View logs in real-time
-docker_container_logs("web", {follow: true, lines: 50})
+docker_container_logs({service: "web", follow: true, lines: 50})
 
 // Check Redis cache
-docker_db_query("redis", "KEYS *")
+docker_db_query({service: "redis", query: "KEYS *"})
 
 // Run tests
-docker_exec("web", "npm test")
+docker_exec({service: "web", command: "npm test"})
 ```
 
 ### Example 2: Backend Development (Django + PostgreSQL)
 
 ```typescript
 // Restart backend after code changes
-docker_container_restart("web")
+docker_container_restart({service: "web"})
 
 // Run database migrations
-docker_exec("web", "python manage.py migrate")
+docker_exec({service: "web", command: "python manage.py migrate"})
 
 // Query database
-docker_db_query("postgres", "SELECT COUNT(*) FROM auth_user;")
+docker_db_query({service: "postgres", query: "SELECT COUNT(*) FROM auth_user;"})
 
 // Create backup before deployment
-docker_db_backup("postgres", "./backups/pre-deploy.sql")
+docker_db_backup({service: "postgres", compress: true})
 
 // View application logs
-docker_container_logs("web", {lines: 100, timestamps: true})
+docker_container_logs({service: "web", lines: 100, timestamps: true})
 ```
 
 ## 🏗️ How It Works
@@ -276,6 +273,7 @@ Keywords that trigger masking: `PASSWORD`, `TOKEN`, `KEY`, `SECRET`, `API_KEY`
 - **[Remote Docker Guide](docs/REMOTE_DOCKER.md)** — SSH-based remote Docker management
 - **[Remote Discovery Guide](docs/REMOTE_DISCOVERY.md)** — Automatic project discovery on remote servers
 - **[Examples](docs/EXAMPLES.md)** — Real-world usage scenarios
+- **[Testing System](docs/testing/README.md)** — Complete testing guide (E2E, Unit, Manual)
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** — Common issues and solutions
 - **[FAQ](docs/FAQ.md)** — Frequently asked questions
 

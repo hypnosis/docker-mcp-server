@@ -180,7 +180,7 @@ echo "  2. REMOTE profile works (if configured in profiles.json)"
 echo "  3. All critical commands tested with real data"
 echo "  4. Documentation is up to date"
 echo ""
-echo "See MANUAL_TEST.md for detailed checklist"
+echo "See docs/testing/MANUAL_TEST.md for detailed checklist"
 echo ""
 
 read -p "Have you completed manual tests? (y/n) " -n 1 -r
