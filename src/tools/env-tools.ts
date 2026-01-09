@@ -12,9 +12,11 @@ import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { ContainerManager } from '../managers/container-manager.js';
 import { ComposeParser } from '../discovery/compose-parser.js';
 import { ComposeExec } from '../utils/compose-exec.js';
-import { stringify as stringifyYaml } from 'yaml';
+import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 import { logger } from '../utils/logger.js';
 import type { SSHConfig } from '../utils/ssh-config.js';
+import { readRemoteFile } from '../utils/ssh-exec.js';
+import { loadProfilesFile, profileDataToSSHConfig } from '../utils/profiles-file.js';
 
 export class EnvTools {
   private envManager: EnvManager;
@@ -170,13 +172,13 @@ export class EnvTools {
 
     // Load profile configuration
     const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
+    
     if (!profilesFile) {
       logger.warn('DOCKER_MCP_PROFILES_FILE not set, using local Docker');
       return null;
     }
 
     try {
-      const { loadProfilesFile, profileDataToSSHConfig } = require('../utils/profiles-file.js');
       const fileResult = loadProfilesFile(profilesFile);
       
       if (fileResult.errors.length > 0 || !fileResult.config) {
@@ -185,6 +187,7 @@ export class EnvTools {
       }
       
       const profileData = fileResult.config.profiles[profile];
+      
       if (!profileData) {
         logger.warn(`Profile "${profile}" not found, using local Docker`);
         return null;
@@ -196,7 +199,8 @@ export class EnvTools {
       }
       
       // Convert to SSHConfig
-      return profileDataToSSHConfig(profileData);
+      const sshConfig = profileDataToSSHConfig(profileData);
+      return sshConfig;
     } catch (error: any) {
       logger.warn(`Failed to load profile "${profile}": ${error.message}`);
       return null;
@@ -221,8 +225,29 @@ export class EnvTools {
       }
       env = this.envManager.loadEnv(project.projectDir, args.service, serviceConfig);
     } else {
-      // Load global env (without service)
-      env = this.envManager.loadEnv(project.projectDir);
+      // Load env from all services
+      env = {};
+      
+      // First, load global .env files
+      const globalEnv = this.envManager.loadEnv(project.projectDir);
+      Object.assign(env, globalEnv);
+      
+      // Then, load env from each service in the project
+      for (const [serviceName, serviceConfig] of Object.entries(project.services)) {
+        const serviceEnv = this.envManager.loadEnv(project.projectDir, serviceName, serviceConfig);
+        // Prefix with service name to avoid conflicts
+        for (const [key, value] of Object.entries(serviceEnv)) {
+          // Only add if not already in global env (global has priority)
+          if (!(key in env)) {
+            env[`${serviceName}.${key}`] = value;
+          }
+        }
+      }
+      
+      // If no services found, at least return global env
+      if (Object.keys(env).length === 0) {
+        env = globalEnv;
+      }
     }
 
     // Mask secrets (default: true)
@@ -262,15 +287,72 @@ export class EnvTools {
    * docker_compose_config handler
    */
   private async handleComposeConfig(args: any) {
-    const project = await this.getProject(args?.project);
     const shouldResolve = args?.resolve === true;
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
     
-    // Check if compose file exists
-    if (!project.composeFile) {
-      throw new Error(
-        `Compose file not found for project '${project.name}'. ` +
-        `This may happen if the project is remote or docker-compose.yml is not in the current directory.`
-      );
+    
+    // Determine project name
+    let projectName: string;
+    let project;
+    
+    if (sshConfig) {
+      // Remote mode: don't use local discovery
+      if (args?.project) {
+        projectName = args.project;
+      } else {
+        // Use working directory name as fallback
+        const cwd = process.cwd();
+        projectName = cwd.split('/').pop() || 'docker-mcp-server';
+      }
+      // Create minimal project config for remote
+      project = { name: projectName, composeFile: '', projectDir: '', services: {} };
+    } else {
+      // Local mode: use local discovery
+      project = await this.getProject(args?.project);
+      projectName = project.name;
+    }
+    
+    let composeFile: string = project.composeFile || '';
+    let composeContent: string | null = null;
+    
+    // PRIORITY: If profile is specified, read REMOTE file FIRST
+    if (sshConfig) {
+      // Remote mode: read file via SSH
+      const projectsPath = (sshConfig as any).projectsPath || '/var/www';
+      const possiblePaths = [
+        `${projectsPath}/${projectName}/docker-compose.yml`,
+        `${projectsPath}/${projectName}/compose.yml`,
+      ];
+      
+      for (const remoteComposePath of possiblePaths) {
+        try {
+          logger.debug(`Trying to read remote compose file: ${remoteComposePath}`);
+          composeContent = await readRemoteFile(remoteComposePath, {
+            sshConfig,
+            timeout: 30000,
+          });
+          composeFile = remoteComposePath;
+          logger.debug(`Successfully read remote compose file from: ${remoteComposePath}`);
+          break;
+        } catch (error: any) {
+          logger.warn(`Failed to read from ${remoteComposePath}: ${error.message}`);
+        }
+      }
+      
+      if (!composeContent) {
+        throw new Error(
+          `Remote compose file not found for project '${projectName}' in ${projectsPath}. ` +
+          `Tried: docker-compose.yml, compose.yml`
+        );
+      }
+    } else {
+      // Local mode: use local file
+      if (!composeFile) {
+        throw new Error(
+          `Compose file not found for project '${projectName}'. ` +
+          `This may happen if the project is remote or docker-compose.yml is not in the current directory.`
+        );
+      }
     }
     
     let output: string;
@@ -285,18 +367,29 @@ export class EnvTools {
         logger.warn('Filtering by services is not supported with resolve=true. Showing full config.');
       }
       
-      try {
-        output = ComposeExec.run(project.composeFile, ['config'], {
-          cwd: project.projectDir,
-        });
-      } catch (error: any) {
-        throw new Error(`Failed to get resolved config: ${error.message}`);
+      // For remote files, we can't use ComposeExec.run directly
+      // Use parsed config instead if remote
+      if (composeContent) {
+        logger.debug('Remote file detected, using parsed config instead of CLI');
+        const rawConfig = parseYaml(composeContent);
+        output = stringifyYaml(rawConfig);
+      } else {
+        try {
+          output = ComposeExec.run(composeFile, ['config'], {
+            cwd: project.projectDir,
+          });
+        } catch (error: any) {
+          throw new Error(`Failed to get resolved config: ${error.message}`);
+        }
       }
     } else {
       // Использовать parsed config (быстро, без resolve)
       logger.debug('Using parsed config (no resolve)');
       
-      const rawConfig = this.composeParser.parseRaw(project.composeFile);
+      // Use remote content if available, otherwise parse from file
+      const rawConfig = composeContent
+        ? parseYaml(composeContent) // Parse remote content directly
+        : this.composeParser.parseRaw(composeFile);
       
       // Фильтровать по services если указано
       if (args?.services && Array.isArray(args.services)) {
@@ -310,7 +403,7 @@ export class EnvTools {
             filteredConfig.services[serviceName] = rawConfig.services[serviceName];
           } else {
             throw new Error(
-              `Service '${serviceName}' not found in project '${project.name}'. ` +
+              `Service '${serviceName}' not found in project '${projectName}'. ` +
               `Available services: ${Object.keys(rawConfig.services || {}).join(', ')}`
             );
           }

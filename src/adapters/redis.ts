@@ -42,16 +42,27 @@ export class RedisAdapter implements DatabaseAdapter {
     const conn = this.getConnectionInfo(serviceConfig, env);
 
     // Build redis-cli command
-    let cmd = ['redis-cli'];
+    // Use echo with pipe to pass the command, preserving quotes and spaces
+    let cmd: string[];
 
-    // Password (if needed)
+    // Escape the query for shell (escape single quotes)
+    const escapedQuery = query.replace(/'/g, "'\"'\"'");
+    
     if (conn.password) {
-      cmd.push('-a', conn.password);
+      // Use sh -c to execute: echo "query" | redis-cli -a password
+      cmd = [
+        'sh',
+        '-c',
+        `echo '${escapedQuery}' | redis-cli -a '${conn.password}'`
+      ];
+    } else {
+      // Use sh -c to execute: echo "query" | redis-cli
+      cmd = [
+        'sh',
+        '-c',
+        `echo '${escapedQuery}' | redis-cli`
+      ];
     }
-
-    // Redis command
-    const commandParts = query.trim().split(/\s+/);
-    cmd.push(...commandParts);
 
     logger.debug(`Executing Redis command in ${service}: ${query}`);
 
