@@ -35,15 +35,39 @@ export function createMockDocker(containers: MockContainer[] = []): Docker {
     
     listContainers: vi.fn().mockImplementation(async (options?: Docker.ContainerListOptions) => {
       // Convert mock containers to Docker API format
-      return containers.map(container => ({
-        Id: container.id,
-        Names: [container.name.startsWith('/') ? container.name : `/${container.name}`],
-        Image: container.image,
-        State: container.status,
-        Status: `${container.status} 2 hours ago`,
-        Created: Math.floor(Date.now() / 1000) - 7200, // 2 hours ago
-        Ports: [],
-      }));
+      // Extract project and service from container name: project_service_1
+      return containers.map(container => {
+        const cleanName = container.name.replace(/^\/+/, '');
+        // Parse: project_service_1 or project-service-1
+        // Extract project (first part) and service (middle parts before last number)
+        const nameParts = cleanName.split('_');
+        let projectName = nameParts[0] || 'default';
+        let serviceName = 'unknown';
+        
+        if (nameParts.length >= 3) {
+          // Format: project_service_1 or project_service-name_1
+          serviceName = nameParts.slice(1, -1).join('_');
+        } else if (nameParts.length === 2) {
+          // Format: project_service
+          serviceName = nameParts[1];
+        }
+        
+        return {
+          Id: container.id,
+          Names: [container.name.startsWith('/') ? container.name : `/${container.name}`],
+          Image: container.image,
+          State: container.status,
+          Status: `${container.status} 2 hours ago`,
+          Created: Math.floor(Date.now() / 1000) - 7200, // 2 hours ago
+          Ports: [],
+          Labels: {
+            'com.docker.compose.project': projectName,
+            'com.docker.compose.service': serviceName,
+            'com.docker.compose.project.working_dir': '/test',
+            'com.docker.compose.project.config_files': '/test/docker-compose.yml',
+          },
+        };
+      });
     }),
     
     getContainer: vi.fn().mockImplementation((id: string) => {

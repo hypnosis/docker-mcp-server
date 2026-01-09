@@ -96,7 +96,7 @@ describe('ContainerManager', () => {
         }),
         createMockContainerData({
           id: 'container2',
-          name: 'my-project-api-service_1',
+          name: 'my-project_api-service_1',
         }),
       ];
 
@@ -109,6 +109,7 @@ describe('ContainerManager', () => {
 
       const result = await manager.listContainers('my-project');
 
+      expect(result).toHaveLength(2);
       expect(result[0].service).toBe('web');
       expect(result[1].service).toBe('api-service');
     });
