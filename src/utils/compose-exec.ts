@@ -3,7 +3,7 @@
  * CLI wrapper для docker-compose команд
  */
 
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { logger } from './logger.js';
 import type { SSHConfig } from './ssh-config.js';
 
@@ -26,18 +26,19 @@ export class ComposeExec {
     args: string[],
     options: ComposeExecOptions = {}
   ): string {
-    // Строим команду: docker-compose -f <file> <args>
-    let cmd = `docker-compose -f ${composeFile}`;
+    // Используем docker compose (v2) вместо docker-compose (v1)
+    // docker compose работает везде, docker-compose может отсутствовать
+    let cmd = `docker compose -f ${composeFile}`;
 
     // Добавляем Docker context (если указан)
     if (options.dockerContext) {
-      cmd = `docker-compose --context ${options.dockerContext} -f ${composeFile}`;
+      cmd = `docker compose --context ${options.dockerContext} -f ${composeFile}`;
       logger.debug(`Using Docker context: ${options.dockerContext}`);
     }
 
     cmd = `${cmd} ${args.join(' ')}`;
 
-    logger.debug(`Executing docker-compose: ${cmd}`);
+    logger.debug(`Executing docker compose: ${cmd}`);
     if (options.cwd) {
       logger.debug(`Working directory: ${options.cwd}`);
     }
@@ -45,47 +46,38 @@ export class ComposeExec {
     // Подготавливаем окружение для выполнения команды
     const env = this.prepareEnvironment(options.sshConfig);
 
-    try {
-      const output = execSync(cmd, {
-        cwd: options.cwd,
-        env: env,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+    // Разбиваем команду на части для spawnSync
+    const [command, ...commandArgs] = cmd.split(' ');
 
-      return output;
-    } catch (error: any) {
-      // Проверяем exit code - если 0, это не ошибка
-      if (error.status === 0 || error.code === 0) {
-        // Команда выполнена успешно, но execSync бросил исключение из-за stderr
-        // Возвращаем stdout если есть, иначе пустую строку
-        const stdout = error.stdout?.toString ? error.stdout.toString() : (error.stdout || '');
-        return stdout || '';
+    const result = spawnSync(command, commandArgs, {
+      cwd: options.cwd,
+      env: env,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    // Проверяем exit code
+    if (result.status !== 0 && result.status !== null) {
+      // Команда завершилась с ошибкой
+      let errorMessage = result.stderr || result.stdout || 'Unknown error';
+      
+      // Если есть stdout, добавляем его к сообщению
+      if (result.stdout && result.stdout.trim()) {
+        errorMessage = `${errorMessage}\n${result.stdout}`;
       }
       
-      logger.error('docker-compose command failed:', error);
+      logger.error('docker compose command failed:', {
+        status: result.status,
+        stderr: result.stderr,
+        stdout: result.stdout,
+      });
       
-      // Извлекаем полное сообщение об ошибке (включая stderr)
-      let errorMessage = error.message || String(error);
-      
-      // Если есть stderr, добавляем его к сообщению
-      if (error.stderr) {
-        const stderr = error.stderr.toString ? error.stderr.toString() : String(error.stderr);
-        if (stderr && !errorMessage.includes(stderr)) {
-          errorMessage = `${errorMessage}\n${stderr}`;
-        }
-      }
-      
-      // Если есть stdout (может содержать полезную информацию)
-      if (error.stdout) {
-        const stdout = error.stdout.toString ? error.stdout.toString() : String(error.stdout);
-        if (stdout && stdout.trim()) {
-          errorMessage = `${errorMessage}\n${stdout}`;
-        }
-      }
-      
-      throw new Error(`docker-compose failed: ${errorMessage}`);
+      throw new Error(`docker compose failed: ${errorMessage}`);
     }
+
+    // Команда выполнена успешно (status === 0 или null)
+    // Возвращаем stdout, игнорируя stderr (он может содержать предупреждения)
+    return result.stdout || '';
   }
 
   /**
@@ -121,22 +113,26 @@ export class ComposeExec {
 
     logger.debug(`Creating Docker context: ${cmd}`);
 
-    try {
-      execSync(cmd, {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      logger.info(`Docker context "${contextName}" created successfully`);
-    } catch (error: any) {
+    const [command, ...args] = cmd.split(' ');
+    const result = spawnSync(command, args, {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    if (result.status !== 0 && result.status !== null) {
+      const errorMessage = result.stderr || result.stdout || 'Unknown error';
+      
       // Если контекст уже существует, это не критично
-      if (error.message && error.message.includes('already exists')) {
+      if (errorMessage.includes('already exists')) {
         logger.warn(`Docker context "${contextName}" already exists`);
         return;
       }
       
-      logger.error(`Failed to create Docker context: ${error.message}`);
-      throw new Error(`Failed to create Docker context "${contextName}": ${error.message}`);
+      logger.error(`Failed to create Docker context: ${errorMessage}`);
+      throw new Error(`Failed to create Docker context "${contextName}": ${errorMessage}`);
     }
+    
+    logger.info(`Docker context "${contextName}" created successfully`);
   }
 
   /**
@@ -144,17 +140,21 @@ export class ComposeExec {
    */
   static async contextExists(contextName: string): Promise<boolean> {
     try {
-      const cmd = `docker context ls --format json`;
-      const output = execSync(cmd, {
+      const result = spawnSync('docker', ['context', 'ls', '--format', 'json'], {
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
+      if (result.status !== 0 && result.status !== null) {
+        return false;
+      }
+
+      const output = result.stdout || '';
       const contexts = output
         .trim()
         .split('\n')
-        .filter((line) => line.trim())
-        .map((line) => JSON.parse(line));
+        .filter((line: string) => line.trim())
+        .map((line: string) => JSON.parse(line));
 
       return contexts.some((ctx: any) => ctx.Name === contextName);
     } catch {
