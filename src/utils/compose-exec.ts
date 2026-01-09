@@ -55,6 +55,14 @@ export class ComposeExec {
 
       return output;
     } catch (error: any) {
+      // Проверяем exit code - если 0, это не ошибка
+      if (error.status === 0 || error.code === 0) {
+        // Команда выполнена успешно, но execSync бросил исключение из-за stderr
+        // Возвращаем stdout если есть, иначе пустую строку
+        const stdout = error.stdout?.toString ? error.stdout.toString() : (error.stdout || '');
+        return stdout || '';
+      }
+      
       logger.error('docker-compose command failed:', error);
       
       // Извлекаем полное сообщение об ошибке (включая stderr)
