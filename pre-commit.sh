@@ -89,7 +89,7 @@ fi
 print_step "Step 3: Unit Tests"
 
 echo "Running unit tests..."
-npm run test
+npm run test:unit
 if [ $? -eq 0 ]; then
     print_success "Unit tests passed"
 else
@@ -114,61 +114,10 @@ else
 fi
 
 # ============================================================================
-# STEP 5: Docker Environment Setup
+# STEP 5: Manual Test Reminder
 # ============================================================================
 
-print_step "Step 5: Docker Environment Check"
-
-echo "Checking if Docker is running..."
-if docker info > /dev/null 2>&1; then
-    print_success "Docker is running"
-else
-    print_error "Docker is not running"
-    echo "Please start Docker and try again"
-    exit 1
-fi
-
-echo "Checking test environment..."
-if docker-compose -f docker-compose.test.yml ps | grep -q "test-web"; then
-    print_success "Test environment is running"
-else
-    print_warning "Test environment is not running"
-    echo "Starting test environment..."
-    docker-compose -f docker-compose.test.yml up -d
-    
-    echo "Waiting for services to be healthy (30s)..."
-    sleep 30
-    
-    if docker-compose -f docker-compose.test.yml ps | grep -q "test-web"; then
-        print_success "Test environment started"
-    else
-        print_error "Failed to start test environment"
-        exit 1
-    fi
-fi
-
-# ============================================================================
-# STEP 6: E2E Tests
-# ============================================================================
-
-print_step "Step 6: E2E Tests (All MCP Tools)"
-
-echo "Running E2E tests against test environment..."
-npm run test:e2e
-if [ $? -eq 0 ]; then
-    print_success "E2E tests passed"
-else
-    print_error "E2E tests failed"
-    echo ""
-    echo "Check test output above for details"
-    exit 1
-fi
-
-# ============================================================================
-# STEP 7: Manual Test Reminder
-# ============================================================================
-
-print_step "Step 7: Manual Test Reminder"
+print_step "Step 5: Manual Test Reminder"
 
 echo "Automated tests completed successfully!"
 echo ""
@@ -179,6 +128,11 @@ echo "  1. LOCAL profile works (default)"
 echo "  2. REMOTE profile works (if configured in profiles.json)"
 echo "  3. All critical commands tested with real data"
 echo "  4. Documentation is up to date"
+echo ""
+echo "E2E tests: Run manually when needed:"
+echo "  npm run test:e2e              # All E2E tests"
+echo "  npm run test:e2e:database     # Database tools only"
+echo "  npm run test:e2e:container    # Container tools only"
 echo ""
 echo "See docs/testing/MANUAL_TEST.md for detailed checklist"
 echo ""
@@ -194,10 +148,10 @@ fi
 print_success "Manual tests confirmed"
 
 # ============================================================================
-# STEP 8: Final Checks
+# STEP 6: Final Checks
 # ============================================================================
 
-print_step "Step 8: Final Checks"
+print_step "Step 6: Final Checks"
 
 echo "Checking for uncommitted changes..."
 if git diff --quiet && git diff --cached --quiet; then

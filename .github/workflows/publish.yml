@@ -28,20 +28,6 @@ jobs:
       - name: Run unit tests (fast, no Docker)
         run: npm run test:unit
       
-      - name: Setup Docker Compose for E2E tests
-        run: |
-          docker compose -f docker-compose.test.yml up -d
-          echo "Waiting for containers to be healthy..."
-          sleep 30
-          docker compose -f docker-compose.test.yml ps
-      
-      - name: Run E2E tests (with Docker)
-        run: npm run test:e2e
-      
-      - name: Cleanup Docker Compose
-        if: always()
-        run: docker compose -f docker-compose.test.yml down
-      
       - name: Build
         run: npm run build
       

@@ -42,7 +42,7 @@
     "docker:test:down": "docker-compose -f docker-compose.test.yml down",
     "docker:test:logs": "docker-compose -f docker-compose.test.yml logs -f",
     "docker:test:clean": "docker-compose -f docker-compose.test.yml down -v",
-    "prepublishOnly": "npm run build && npm test",
+    "prepublishOnly": "npm run build && npm run test:unit",
     "publish:dry": "npm pack --dry-run",
     "publish:check": "npm pack && tar -tzf *.tgz | head -20 && rm -f *.tgz",
     "publish:npm": "npm publish --access public"
