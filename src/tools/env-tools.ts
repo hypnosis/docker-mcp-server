@@ -14,6 +14,7 @@ import { ComposeParser } from '../discovery/compose-parser.js';
 import { ComposeExec } from '../utils/compose-exec.js';
 import { stringify as stringifyYaml } from 'yaml';
 import { logger } from '../utils/logger.js';
+import type { SSHConfig } from '../utils/ssh-config.js';
 
 export class EnvTools {
   private envManager: EnvManager;
@@ -39,6 +40,10 @@ export class EnvTools {
         inputSchema: {
           type: 'object',
           properties: {
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
             project: {
               type: 'string',
               description: 'Project name (auto-detected if not provided)',
@@ -61,6 +66,10 @@ export class EnvTools {
         inputSchema: {
           type: 'object',
           properties: {
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
             project: {
               type: 'string',
               description: 'Project name (auto-detected if not provided)',
@@ -86,6 +95,10 @@ export class EnvTools {
         inputSchema: {
           type: 'object',
           properties: {
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
             project: {
               type: 'string',
               description: 'Project name (auto-detected if not provided)',
@@ -142,8 +155,52 @@ export class EnvTools {
    */
   private async getProject(projectName?: string) {
     return await this.projectDiscovery.findProject(
-      projectName ? { explicitPath: projectName } : {}
+      projectName ? { explicitProjectName: projectName } : {}
     );
+  }
+
+  /**
+   * Helper: get SSH config for profile
+   * Returns null for local profile or undefined profile
+   */
+  private getSSHConfigForProfile(profile?: string): SSHConfig | null {
+    if (!profile) {
+      return null; // Local Docker
+    }
+
+    // Load profile configuration
+    const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
+    if (!profilesFile) {
+      logger.warn('DOCKER_MCP_PROFILES_FILE not set, using local Docker');
+      return null;
+    }
+
+    try {
+      const { loadProfilesFile, profileDataToSSHConfig } = require('../utils/profiles-file.js');
+      const fileResult = loadProfilesFile(profilesFile);
+      
+      if (fileResult.errors.length > 0 || !fileResult.config) {
+        logger.warn(`Failed to load profiles file: ${fileResult.errors.join(', ')}`);
+        return null;
+      }
+      
+      const profileData = fileResult.config.profiles[profile];
+      if (!profileData) {
+        logger.warn(`Profile "${profile}" not found, using local Docker`);
+        return null;
+      }
+      
+      // Check if local mode
+      if (profileData.mode === 'local') {
+        return null;
+      }
+      
+      // Convert to SSHConfig
+      return profileDataToSSHConfig(profileData);
+    } catch (error: any) {
+      logger.warn(`Failed to load profile "${profile}": ${error.message}`);
+      return null;
+    }
   }
 
   /**
@@ -207,6 +264,14 @@ export class EnvTools {
   private async handleComposeConfig(args: any) {
     const project = await this.getProject(args?.project);
     const shouldResolve = args?.resolve === true;
+    
+    // Check if compose file exists
+    if (!project.composeFile) {
+      throw new Error(
+        `Compose file not found for project '${project.name}'. ` +
+        `This may happen if the project is remote or docker-compose.yml is not in the current directory.`
+      );
+    }
     
     let output: string;
 
@@ -274,8 +339,12 @@ export class EnvTools {
   private async handleHealthcheck(args: any) {
     const project = await this.getProject(args?.project);
     
+    // Get SSH config for profile
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const containerManager = new ContainerManager(sshConfig);
+    
     // Получить список всех контейнеров
-    const containers = await this.containerManager.listContainers(project.name);
+    const containers = await containerManager.listContainers(project.name);
     
     // Фильтровать по services если указано
     let servicesToCheck: string[];
@@ -301,7 +370,7 @@ export class EnvTools {
     const serviceStatuses = await Promise.all(
       servicesToCheck.map(async (serviceName) => {
         try {
-          const health = await this.containerManager.getHealthStatus(serviceName, project.name, project.composeFile, project.projectDir);
+          const health = await containerManager.getHealthStatus(serviceName, project.name, project.composeFile, project.projectDir);
           return {
             name: serviceName,
             status: health.status,

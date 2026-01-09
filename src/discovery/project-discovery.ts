@@ -34,10 +34,26 @@ export class ProjectDiscovery {
   async findProject(options: DiscoveryOptions = {}): Promise<ProjectConfig> {
     logger.debug('Starting project discovery', options);
 
-    // Если передан явный project name, возвращаем минимальный конфиг
-    // Это для случаев когда работаем с remote и compose файла нет локально
+    // Если передан явный project name, сначала попробуем найти локальный compose файл
+    // Если не найдем - вернем минимальный конфиг (для remote проектов)
     if (options.explicitProjectName) {
       logger.debug(`Using explicit project name: ${options.explicitProjectName}`);
+      
+      // Попробуем найти compose файл локально
+      const cwd = options.cwd || workspaceManager.getWorkspaceRoot() || process.cwd();
+      const composeFiles = this.autoDetectFiles(cwd);
+      
+      if (composeFiles.length > 0) {
+        // Найден локальный compose файл - используем его
+        logger.debug(`Found local compose file for project ${options.explicitProjectName}`);
+        const config = await this.loadProject(composeFiles);
+        // Обновляем имя проекта на явно указанное
+        config.name = options.explicitProjectName;
+        return config;
+      }
+      
+      // Compose файл не найден - возвращаем минимальный конфиг (для remote)
+      logger.debug(`No local compose file found for ${options.explicitProjectName}, assuming remote project`);
       return {
         name: options.explicitProjectName,
         composeFile: '', // Не известно для remote без compose файла
