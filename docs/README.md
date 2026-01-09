@@ -90,7 +90,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `docker_container_list` | List all containers in project | `docker_container_list()` |
+| `docker_container_list` | List all containers (or for specific project) | `docker_container_list()` or `docker_container_list({project: "x"})` |
 | `docker_container_start` | Start a container | `docker_container_start("web")` |
 | `docker_container_stop` | Stop a container | `docker_container_stop("web")` |
 | `docker_container_restart` | Restart a container | `docker_container_restart("web")` |

@@ -90,90 +90,44 @@ export class ContainerManager {
 
   /**
    * List project containers
+   * Shows all containers with Docker Compose labels (com.docker.compose.*)
    */
   async listContainers(projectName: string, composeFile?: string, projectDir?: string): Promise<ContainerInfo[]> {
-    logger.debug(`Listing containers for project: ${projectName}`);
-
-    // Option 1: Use Docker Compose labels (direct Docker API call with retry)
+    // Get ALL containers with ANY compose labels
     try {
-      const containers = await this.withRetry(() => 
-        this.docker.listContainers({
-          all: true,
-          filters: {
-            label: [`com.docker.compose.project=${projectName}`],
-          },
-        })
+      const allContainers = await this.withRetry(() => 
+        this.docker.listContainers({ all: true })
       );
 
-      if (containers.length > 0) {
-        logger.debug(`Found ${containers.length} containers via Docker Compose labels`);
-        return containers.map((c) => this.mapContainerInfo(c, projectName));
-      }
-      
-      logger.debug('No containers found via labels, trying fallback methods');
-    } catch (error) {
-      logger.debug('Failed to list containers via labels:', error);
-    }
+      // Filter containers that have Docker Compose labels
+      const containersWithLabels = allContainers.filter(container => {
+        const labels = container.Labels || {};
+        // Check if container has any compose labels
+        return Object.keys(labels).some(key => key.startsWith('com.docker.compose.'));
+      });
 
-    // Fallback 1: Use docker-compose ps CLI (if composeFile exists)
-    if (composeFile && projectDir) {
-      try {
-        const { ComposeExec } = await import('../utils/compose-exec.js');
-        const output = ComposeExec.run(composeFile, ['ps', '--format', 'json'], {
-          cwd: projectDir,
+      // If project name is specified, filter by project label
+      if (projectName) {
+        const projectContainers = containersWithLabels.filter(container => {
+          const labels = container.Labels || {};
+          return labels['com.docker.compose.project'] === projectName;
         });
-        
-        const composeContainers = output
-          .split('\n')
-          .filter(line => line.trim())
-          .map(line => {
-            try {
-              return JSON.parse(line);
-            } catch {
-              return null;
-            }
-          })
-          .filter(c => c && c.Name);
 
-        if (composeContainers.length > 0) {
-          logger.debug(`Found ${composeContainers.length} containers via docker-compose ps`);
-          
-          // Get full container information via Docker API with retry
-          const containerNames = composeContainers.map(c => c.Name);
-          const allContainers = await this.withRetry(() => 
-            this.docker.listContainers({ all: true })
-          );
-          
-          const projectContainers = allContainers.filter(c => {
-            const name = c.Names[0]?.replace(/^\//, '') || '';
-            return containerNames.some(n => name === n || name.includes(n));
-          });
-
-          return projectContainers.map((c) => {
-            const composeInfo = composeContainers.find(cc => {
-              const name = c.Names[0]?.replace(/^\//, '') || '';
-              return name === cc.Name || name.includes(cc.Name);
-            });
-            return this.mapContainerInfo(c, projectName, composeInfo?.Service);
-          });
+        if (projectContainers.length > 0) {
+          return projectContainers.map((c) => this.mapContainerInfo(c, projectName));
         }
-      } catch (error) {
-        logger.debug('Failed to use docker-compose ps:', error);
       }
+
+      // Return all containers with compose labels (if no project specified or project not found)
+      return containersWithLabels.map((c) => {
+        const labels = c.Labels || {};
+        const containerProject = labels['com.docker.compose.project'] || projectName || 'unknown';
+        return this.mapContainerInfo(c, containerProject);
+      });
+    } catch (error) {
+      logger.error('Failed to list containers:', error);
+      return [];
     }
-
-    // Fallback 2: Filter by project name in container name with retry
-    logger.debug('Using name-based filter as final fallback');
-    const containers = await this.withRetry(() =>
-      this.docker.listContainers({
-        all: true,
-        filters: {
-          name: [projectName],
-        },
-      })
-    );
-
-    return containers.map((c) => this.mapContainerInfo(c, projectName));
   }
 
   /**

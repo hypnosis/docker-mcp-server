@@ -14,7 +14,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { logger } from './utils/logger.js';
-import { getDockerClient, cleanupDockerClient } from './utils/docker-client.js';
+import { getDockerClient, cleanupDockerClient, cleanupAllDockerClients } from './utils/docker-client.js';
 import { loadSSHConfig } from './utils/ssh-config.js';
 import { workspaceManager } from './utils/workspace.js';
 import { ContainerTools } from './tools/container-tools.js';
@@ -138,16 +138,22 @@ async function main() {
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     logger.debug('ListTools request received');
     
+    const allTools = [
+      ...containerTools.getTools(),
+      executorTool.getTool(),
+      ...databaseTools.getTools(),
+      ...envTools.getTools(),
+      mcpHealthTool.getTool(),
+      profileTool.getTool(),
+      ...discoveryTools.getTools(),
+    ];
+    
+    // Log actual count for debugging
+    logger.info(`Returning ${allTools.length} tools to MCP client`);
+    logger.debug(`Tool names: ${allTools.map(t => t.name).join(', ')}`);
+    
     return {
-      tools: [
-        ...containerTools.getTools(),
-        executorTool.getTool(),
-        ...databaseTools.getTools(),
-        ...envTools.getTools(),
-        mcpHealthTool.getTool(),
-        profileTool.getTool(),
-        ...discoveryTools.getTools(),
-      ],
+      tools: allTools,
     };
   });
 
@@ -188,7 +194,7 @@ async function main() {
     }
 
     // Discovery tools
-    if (toolName === 'docker_discover_projects' || toolName === 'docker_project_status') {
+    if (toolName === 'docker_projects') {
       return discoveryTools.handleCall(request);
     }
 
@@ -200,17 +206,28 @@ async function main() {
   await server.connect(transport);
 
   logger.info('Docker MCP Server started successfully');
-  logger.info('Registered tools: 21 commands (9 container + 1 executor + 4 database + 3 environment + 1 mcp-health + 1 profile + 2 discovery)');
+  
+  // Calculate actual tool count
+  const toolCount = 
+    containerTools.getTools().length +
+    1 + // executorTool
+    databaseTools.getTools().length +
+    envTools.getTools().length +
+    1 + // mcpHealthTool
+    1 + // profileTool
+    discoveryTools.getTools().length;
+  
+  logger.info(`Registered tools: ${toolCount} commands (${containerTools.getTools().length} container + 1 executor + ${databaseTools.getTools().length} database + ${envTools.getTools().length} environment + 1 mcp-health + 1 profile + ${discoveryTools.getTools().length} discovery)`);
   logger.info('Listening on STDIO...');
 
   // Setup graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully...`);
     
-    // Cleanup Docker client (SSH tunnels, etc.)
+    // Cleanup all Docker clients (singleton + pool, SSH tunnels, etc.)
     try {
-      cleanupDockerClient();
-      logger.info('Docker client cleaned up');
+      cleanupAllDockerClients();
+      logger.info('All Docker clients cleaned up');
     } catch (error: any) {
       logger.error('Error during Docker cleanup:', error.message);
     }
@@ -232,13 +249,13 @@ async function main() {
   process.on('SIGHUP', () => shutdown('SIGHUP'));
   process.on('exit', () => {
     logger.debug('Process exiting, final cleanup...');
-    cleanupDockerClient();
+    cleanupAllDockerClients();
   });
 }
 
 // Error handling
 main().catch((error) => {
   logger.error('Fatal error:', error);
-  cleanupDockerClient(); // Cleanup on fatal error
+  cleanupAllDockerClients(); // Cleanup on fatal error
   process.exit(1);
 });

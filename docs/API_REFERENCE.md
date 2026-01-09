@@ -18,53 +18,52 @@
 
 ### docker_container_list
 
-List all containers in the current project.
+List containers with Docker Compose labels. Follows REST API approach.
 
 **Signature:**
 ```typescript
 docker_container_list(options?: {
   project?: string;
-  all?: boolean;
-}): Promise<Container[]>
+  profile?: string;
+}): Promise<string>
 ```
 
 **Parameters:**
-- `project` (optional) — Project name. Auto-detected if not provided.
-- `all` (optional) — Show all containers including stopped. Default: `true`
+- `project` (optional) — Project name. If not provided, shows ALL containers grouped by project.
+- `profile` (optional) — Profile name from profiles.json (default: local Docker)
 
-**Returns:**
-```typescript
-interface Container {
-  name: string;
-  status: 'running' | 'exited' | 'paused' | 'restarting';
-  image: string;
-  ports: string[];
-  created: string;
-  health?: 'healthy' | 'unhealthy' | 'starting';
-}
-```
+**Behavior:**
+- **Without `project`**: Shows ALL containers with Compose labels, grouped by project
+- **With `project`**: Shows only containers for the specified project
 
 **Example:**
 ```typescript
-// List all containers in current project
+// List ALL containers (grouped by project)
 docker_container_list()
 
 // List containers for specific project
 docker_container_list({project: "my-app"})
 
-// List only running containers
-docker_container_list({all: false})
+// List containers on remote server
+docker_container_list({profile: "prod"})
+
+// List containers for specific project on remote
+docker_container_list({project: "my-app", profile: "prod"})
 ```
 
-**Output:**
+**Output (without project):**
 ```
-┌──────────────┬──────────┬─────────────────┬────────────┐
-│ Name         │ Status   │ Image           │ Health     │
-├──────────────┼──────────┼─────────────────┼────────────┤
-│ web          │ running  │ node:18-alpine  │ healthy    │
-│ postgres     │ running  │ postgres:15     │ healthy    │
-│ redis        │ running  │ redis:7-alpine  │ -          │
-└──────────────┴──────────┴─────────────────┴────────────┘
+📦 gobunnygo (1 containers)
+  - gobunnygo-dev (running)
+
+📦 dungeon-mayhem (2 containers)
+  - dungeon_mayhem_bot (restarting)
+  - dungeon_mayhem_db (running)
+```
+
+**Output (with project):**
+```
+gobunnygo-dev (running) - gobunnygo:dev
 ```
 
 ---
@@ -914,170 +913,62 @@ interface MCPError {
 
 ## Project Discovery
 
-### docker_discover_projects
+### docker_projects
 
-Discover all Docker projects on remote server. Uses **Fast Mode** by default for maximum speed (~2 seconds).
+List all Docker projects with their status. Uses Docker Compose labels for fast discovery (~2s). Works for both local and remote Docker.
 
-**Architecture (SQL-like approach):**
-- `docker_discover_projects()` = `SELECT * FROM containers` → Fast list of all projects
-- `docker_project_status("name")` = `SELECT * WHERE project="name"` → Detailed info for one project
+**REST API Approach:**
+- `docker_projects()` → List all projects
+- `docker_container_list({project: "x"})` → Get detailed container info for project x
 
 **Signature:**
 ```typescript
-docker_discover_projects(options?: {
+docker_projects(options?: {
+  profile?: string;
   path?: string;
-  mode?: 'fast' | 'full';
-}): Promise<ProjectsDiscoveryResult>
+}): Promise<string>
 ```
 
 **Parameters:**
-- `path` (optional) — Base path to search for projects. Default: from profile config or `/var/www`
-- `mode` (optional) — Discovery mode: `"fast"` (default) or `"full"`. Fast mode uses only Docker labels (~2s), full mode reads all compose files (~14s)
-
-**Returns:**
-```typescript
-interface ProjectsDiscoveryResult {
-  projects: DiscoveredProject[];
-  summary: {
-    total: number;
-    running: number;
-    partial: number;
-    stopped: number;
-  };
-}
-
-interface DiscoveredProject {
-  name: string;
-  path: string;
-  composeFile: string;
-  services: string[];
-  status: 'running' | 'partial' | 'stopped';
-  runningContainers: number;
-  totalServices: number;
-  issues: string[];
-}
-```
+- `profile` (optional) — Profile name from profiles.json (default: local Docker)
+- `path` (optional) — Base path to search for projects (remote only). Default: from profile config or `/var/www`
 
 **Example:**
 ```typescript
-// Fast mode (default) - ~2 seconds, uses Docker labels only
-docker_discover_projects()
+// List all projects (local)
+docker_projects()
 
-// Fast mode explicitly
-docker_discover_projects({ mode: "fast" })
+// List all projects on remote server
+docker_projects({ profile: "prod" })
 
-// Full mode - ~14 seconds, reads all compose files
-docker_discover_projects({ mode: "full" })
-
-// Search in specific directory
-docker_discover_projects({ path: "/opt/docker-projects" })
+// Get detailed containers for specific project
+docker_container_list({ project: "gobunnygo" })
+docker_container_list({ project: "gobunnygo", profile: "prod" })
 ```
-
-**Fast Mode (default):**
-- Uses Docker labels for grouping containers by project
-- No compose file reading
-- Scales to 100+ containers without performance degradation
-- Returns: project name, status, container count, path from label
-
-**Full Mode:**
-- Fast mode + reads all compose files
-- Returns: all from fast mode + service lists, networks, volumes
 
 **Output:**
-```json
-{
-  "projects": [
-    {
-      "name": "gobunnygo",
-      "path": "/var/www/gobunnygo",
-      "composeFile": "/var/www/gobunnygo/docker-compose.yml",
-      "services": ["gobunnygo-prod", "gobunnygo-dev"],
-      "status": "running",
-      "runningContainers": 1,
-      "totalServices": 2,
-      "issues": []
-    },
-    {
-      "name": "alina",
-      "path": "/var/www/alina",
-      "composeFile": "/var/www/alina/docker-compose.yml",
-      "services": ["alina-bot", "alina-web", "alina-core"],
-      "status": "partial",
-      "runningContainers": 2,
-      "totalServices": 3,
-      "issues": ["alina-bot: restarting"]
-    }
-  ],
-  "summary": {
-    "total": 2,
-    "running": 1,
-    "partial": 1,
-    "stopped": 0
-  }
-}
 ```
+Found 6 projects:
 
-**Note:** This command only works with remote Docker (requires SSH configuration).
+- Running: 1
+- Partial: 1
+- Stopped: 4
 
----
-
-### docker_project_status
-
-Get detailed status for a specific project on remote server. Optimized for single project - reads compose file only for the specified project (~2-3 seconds).
+✅ gobunnygo (1/1 running)
+❌ rollyourday (0/2 running)
+⚠️ dungeon-mayhem (1/2 running)
+❌ alina (0/5 running)
+❌ mn_come (0/2 running)
+❌ pptx-gen (0/1 running)
+```
 
 **How it works:**
-1. Filters containers by `com.docker.compose.project` label
-2. Gets project path from `com.docker.compose.project.working_dir` label
-3. Reads compose file ONLY for this project (no find!)
-4. Returns detailed information
+- Uses Docker Compose labels (`com.docker.compose.project`) to group containers
+- Fast discovery (~2 seconds) - no compose file reading
+- Works for both local and remote Docker
+- Scales to 100+ containers without performance degradation
 
-**Signature:**
-```typescript
-docker_project_status(options: {
-  project: string;
-  path?: string;
-}): Promise<DiscoveredProject>
-```
-
-**Parameters:**
-- `project` (required) — Project name
-- `path` (optional) — Base path to search for projects. Default: from profile config or `/var/www`
-
-**Returns:**
-```typescript
-interface DiscoveredProject {
-  name: string;
-  path: string;
-  composeFile: string;
-  services: string[];
-  status: 'running' | 'partial' | 'stopped';
-  runningContainers: number;
-  totalServices: number;
-  issues: string[];
-}
-```
-
-**Example:**
-```typescript
-// Get status for specific project
-docker_project_status({ project: "gobunnygo" })
-```
-
-**Output:**
-```json
-{
-  "name": "gobunnygo",
-  "path": "/var/www/gobunnygo",
-  "composeFile": "/var/www/gobunnygo/docker-compose.yml",
-  "services": ["gobunnygo-prod", "gobunnygo-dev"],
-  "status": "running",
-  "runningContainers": 1,
-  "totalServices": 2,
-  "issues": []
-}
-```
-
-**Note:** This command only works with remote Docker (requires SSH configuration).
+**Note:** For detailed container information, use `docker_container_list({project: "name"})` instead of the removed `docker_project_status`.
 
 ---
 

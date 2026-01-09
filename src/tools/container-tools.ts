@@ -11,7 +11,9 @@ import { ContainerManager } from '../managers/container-manager.js';
 import { ComposeManager } from '../managers/compose-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
+import { getDockerClientForProfile } from '../utils/docker-client.js';
 import type { SSHConfig } from '../utils/ssh-config.js';
+import { loadProfilesFile, profileDataToSSHConfig } from '../utils/profiles-file.js';
 
 export class ContainerTools {
   private containerManager: ContainerManager;
@@ -39,6 +41,10 @@ export class ContainerTools {
               type: 'string',
               description: 'Project name (auto-detected if not provided)',
             },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
           },
         },
       },
@@ -55,6 +61,10 @@ export class ContainerTools {
             project: {
               type: 'string',
               description: 'Project name (auto-detected if not provided)',
+            },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
             },
           },
           required: ['service'],
@@ -79,6 +89,10 @@ export class ContainerTools {
               description: 'Timeout in seconds',
               default: 10,
             },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
           },
           required: ['service'],
         },
@@ -96,6 +110,10 @@ export class ContainerTools {
             project: {
               type: 'string',
               description: 'Project name (auto-detected if not provided)',
+            },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
             },
             timeout: {
               type: 'number',
@@ -119,6 +137,10 @@ export class ContainerTools {
             project: {
               type: 'string',
               description: 'Project name (auto-detected if not provided)',
+            },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
             },
             lines: {
               type: 'number',
@@ -145,6 +167,10 @@ export class ContainerTools {
         inputSchema: {
           type: 'object',
           properties: {
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
             build: {
               type: 'boolean',
               description: 'Build images before starting',
@@ -173,6 +199,10 @@ export class ContainerTools {
         inputSchema: {
           type: 'object',
           properties: {
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
             volumes: {
               type: 'boolean',
               description: 'Remove volumes',
@@ -202,6 +232,10 @@ export class ContainerTools {
               enum: ['images', 'volumes', 'networks'],
               description: 'Type of resource to list',
             },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
           },
           required: ['type'],
         },
@@ -215,6 +249,10 @@ export class ContainerTools {
             service: {
               type: 'string',
               description: 'Service name from docker-compose.yml',
+            },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
             },
             project: {
               type: 'string',
@@ -280,14 +318,64 @@ export class ContainerTools {
   }
 
   private async handleList(args: any) {
-    const project = await this.getProject(args?.project);
-    const containers = await this.containerManager.listContainers(project.name, project.composeFile, project.projectDir);
+    const profile = args?.profile;
+    const sshConfig = this.getSSHConfigForProfile(profile);
+    const containerManager = new ContainerManager(sshConfig);
+    
+    // REST API approach:
+    // - No project parameter: show ALL containers with compose labels
+    // - With project: show only that project's containers
+    const projectName = args?.project || '';
+    
+    const containers = await containerManager.listContainers(projectName);
+
+    if (containers.length === 0) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'No containers found with Docker Compose labels.',
+          },
+        ],
+      };
+    }
+
+    // Group by project if no project specified
+    if (!args?.project) {
+      const grouped = new Map<string, typeof containers>();
+      containers.forEach(c => {
+        const projectName = c.service.split('_')[0] || 'unknown';
+        if (!grouped.has(projectName)) {
+          grouped.set(projectName, []);
+        }
+        grouped.get(projectName)!.push(c);
+      });
+
+      const output = Array.from(grouped.entries()).map(([proj, conts]) => {
+        const containersList = conts.map(c => `  - ${c.name} (${c.status})`).join('\n');
+        return `📦 ${proj} (${conts.length} containers)\n${containersList}`;
+      }).join('\n\n');
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: output,
+          },
+        ],
+      };
+    }
+
+    // Single project: simple list
+    const containerList = containers.map(c => {
+      return `${c.name} (${c.status}) - ${c.image}`;
+    }).join('\n');
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(containers, null, 2),
+          text: containerList,
         },
       ],
     };
@@ -298,8 +386,10 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const containerManager = new ContainerManager(sshConfig);
     const project = await this.getProject(args?.project);
-    await this.containerManager.startContainer(args.service, project.name, project.composeFile, project.projectDir);
+    await containerManager.startContainer(args.service, project.name, project.composeFile, project.projectDir);
 
     return {
       content: [
@@ -316,8 +406,10 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const containerManager = new ContainerManager(sshConfig);
     const project = await this.getProject(args?.project);
-    await this.containerManager.stopContainer(
+    await containerManager.stopContainer(
       args.service,
       project.name,
       args?.timeout || 10,
@@ -340,8 +432,10 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const containerManager = new ContainerManager(sshConfig);
     const project = await this.getProject(args?.project);
-    await this.containerManager.restartContainer(
+    await containerManager.restartContainer(
       args.service,
       project.name,
       args?.timeout || 10,
@@ -364,8 +458,10 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const containerManager = new ContainerManager(sshConfig);
     const project = await this.getProject(args?.project);
-    const logs = await this.containerManager.getLogs(
+    const logs = await containerManager.getLogs(
       args.service,
       project.name,
       {
@@ -417,7 +513,9 @@ export class ContainerTools {
   }
 
   private async handleComposeUp(args: any) {
-    await this.composeManager.composeUp({
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const composeManager = new ComposeManager(sshConfig);
+    await composeManager.composeUp({
       build: args?.build || false,
       detach: args?.detach !== false, // default: true
       services: args?.services,
@@ -435,7 +533,9 @@ export class ContainerTools {
   }
 
   private async handleComposeDown(args: any) {
-    await this.composeManager.composeDown({
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const composeManager = new ComposeManager(sshConfig);
+    await composeManager.composeDown({
       volumes: args?.volumes || false,
       removeOrphans: args?.removeOrphans || false,
       timeout: args?.timeout || 10,
@@ -456,16 +556,19 @@ export class ContainerTools {
       throw new Error('type parameter is required (images, volumes, or networks)');
     }
 
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const containerManager = new ContainerManager(sshConfig);
+
     let resources;
     switch (args.type) {
       case 'images':
-        resources = await this.containerManager.listImages();
+        resources = await containerManager.listImages();
         break;
       case 'volumes':
-        resources = await this.containerManager.listVolumes();
+        resources = await containerManager.listVolumes();
         break;
       case 'networks':
-        resources = await this.containerManager.listNetworks();
+        resources = await containerManager.listNetworks();
         break;
       default:
         throw new Error(`Invalid resource type: ${args.type}. Must be one of: images, volumes, networks`);
@@ -486,8 +589,10 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
+    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const containerManager = new ContainerManager(sshConfig);
     const project = await this.getProject(args?.project);
-    const stats = await this.containerManager.getContainerStats(args.service, project.name, project.composeFile, project.projectDir);
+    const stats = await containerManager.getContainerStats(args.service, project.name, project.composeFile, project.projectDir);
 
     return {
       content: [
@@ -512,5 +617,48 @@ export class ContainerTools {
     
     // Otherwise, use auto-detect (local Docker)
     return this.projectDiscovery.findProject();
+  }
+
+  /**
+   * Helper: get SSH config for profile
+   * Returns null for local profile or undefined profile
+   */
+  private getSSHConfigForProfile(profile?: string): SSHConfig | null {
+    if (!profile) {
+      return null; // Local Docker
+    }
+
+    // Load profile configuration
+    const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
+    if (!profilesFile) {
+      logger.warn('DOCKER_MCP_PROFILES_FILE not set, using local Docker');
+      return null;
+    }
+
+    try {
+      const fileResult = loadProfilesFile(profilesFile);
+      
+      if (fileResult.errors.length > 0 || !fileResult.config) {
+        logger.warn(`Failed to load profiles file: ${fileResult.errors.join(', ')}`);
+        return null;
+      }
+      
+      const profileData = fileResult.config.profiles[profile];
+      if (!profileData) {
+        logger.warn(`Profile "${profile}" not found, using local Docker`);
+        return null;
+      }
+      
+      // Check if local mode
+      if (profileData.mode === 'local') {
+        return null;
+      }
+      
+      // Convert to SSHConfig
+      return profileDataToSSHConfig(profileData);
+    } catch (error: any) {
+      logger.warn(`Failed to load profile "${profile}": ${error.message}`);
+      return null;
+    }
   }
 }

@@ -7,6 +7,159 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-01-09
+
+### Fixed
+
+- **docker_container_list** — Fixed REST API behavior
+  - Without `project` parameter: now shows ALL containers with Compose labels (grouped by project)
+  - With `project` parameter: shows containers for specific project only
+  - Previously always auto-detected project from current directory, causing empty results
+
+### Changed
+
+- **docker_discover_projects** → **docker_projects** — Renamed for clarity
+  - Works for both local and remote Docker
+  - Uses Docker Compose labels for fast discovery (~2s)
+  - Shows project status (running/partial/stopped)
+
+- **docker_project_status** — Removed
+  - Functionality replaced by `docker_container_list({project: "name"})`
+  - Reduces API surface, follows REST principles
+
+### Improved
+
+- **REST API Approach** — Simplified and more intuitive
+  - `docker_projects()` → list all projects
+  - `docker_container_list()` → list all containers (grouped by project)
+  - `docker_container_list({project: "x"})` → list containers for project x
+  - Clearer semantics, better UX
+
+---
+
+## [1.2.0] - 2026-01-09
+
+### Added
+
+- **Profile Parameter** — Parallel access to LOCAL and REMOTE Docker environments
+  - Optional `profile` parameter in all commands for specifying target environment
+  - Default behavior: LOCAL Docker (when profile not specified)
+  - Support for `"local"` profile in `profiles.json` for explicit local mode
+  - Docker client pool for efficient connection management
+  - Lazy SSH tunnel creation (only when accessing remote profiles)
+  - Parallel usage: work with both LOCAL and REMOTE in the same session
+
+- **Profile-based Client Pool** — Efficient Docker client management
+  - `getDockerClientForProfile(profile?: string)` — Get client for specific profile
+  - Automatic caching of Docker clients per profile
+  - Graceful cleanup of all clients on shutdown
+  - Support for multiple concurrent connections
+
+### Changed
+
+- **All Commands** — Now support optional `profile` parameter
+  - Container commands: `docker_container_list`, `docker_container_start/stop/restart`, `docker_container_logs`, `docker_container_stats`, `docker_compose_up/down`, `docker_resource_list`
+  - Database commands: `docker_db_query`, `docker_db_backup`, `docker_db_restore`, `docker_db_status`
+  - Executor: `docker_exec`
+  - Environment commands: `docker_env_list`, `docker_compose_config`, `docker_healthcheck`
+  - Discovery commands: `docker_discover_projects`, `docker_project_status`
+
+- **Profiles Format** — Extended to support local mode
+  - Added `mode: "local" | "remote"` field in profile configuration
+  - `host` and `username` are now optional (required only for remote profiles)
+  - Example: `{"local": {"mode": "local"}}` for local Docker
+
+### Improved
+
+- **User Experience** — No need to restart MCP server to switch between environments
+  - Quick switching between local testing and remote deployment
+  - Parallel comparison of environments in single session
+  - Better workflow for development → staging → production
+
+---
+
+## [1.1.0] - 2026-01-09
+
+### Added
+
+- **Remote Docker Support** — Full SSH-based remote Docker management
+  - SSH tunnel creation and management for remote Docker connections
+  - Multiple server profiles support via `profiles.json` file
+  - Automatic retry logic with exponential backoff (3 attempts, 30s timeout)
+  - Healthcheck for SSH tunnel with automatic reconnection
+  - Secure credential management (SSH keys, passwords)
+
+- **Remote Project Discovery** — Automatic discovery of Docker projects on remote servers
+  - `docker_discover_projects` — Fast discovery of all projects using Docker labels (~2s)
+  - `docker_project_status` — Detailed status for specific project with compose config (~3s)
+  - Automatic project status detection (running, partial, stopped)
+  - Issues detection (restarting, unhealthy, exited containers)
+  - REST API-like approach: fast list + detailed status
+
+- **Project Parameter** — Explicit project specification for all commands
+  - All commands now support optional `project` parameter
+  - Works seamlessly with both local and remote Docker
+  - Backward compatible (auto-detect for local projects)
+
+- **SSH File Access** — Read docker-compose.yml files via SSH
+  - `execSSH()` — Execute commands on remote server via SSH
+  - `readRemoteFile()` — Read files from remote server
+  - `findRemoteFiles()` — Find files on remote server
+
+- **Profile Management** — Multiple server configuration
+  - `docker_profile_list` — List all available SSH profiles
+  - `docker_profile_switch` — Switch between server profiles
+  - Support for `projectsPath` in profile configuration
+  - Default profile selection
+
+### Changed
+
+- **Command Count** — Increased from 18 to 23 commands
+  - Added 2 discovery commands (`docker_discover_projects`, `docker_project_status`)
+  - Added 2 profile commands (`docker_profile_list`, `docker_profile_switch`)
+  - Added 1 health command (`docker_mcp_health`)
+
+- **Performance Optimization** — Remote Discovery improvements
+  - Fast mode always enabled for `discoverProjects()` (Docker labels only, ~2s)
+  - Full mode for `getProjectStatus()` (reads compose for specific project, ~3s)
+  - Optimized batch `docker inspect` via SSH (single command instead of multiple)
+  - Fixed Node.js process hanging issue (unref for healthcheck interval)
+
+- **Docker Client** — Enhanced with SSH support
+  - SSH tunnel creation and management
+  - Automatic tunnel healthcheck
+  - Cleanup on shutdown
+  - Retry logic for network operations
+
+### Fixed
+
+- **Process Hanging** — Fixed Node.js process hanging after SSH tunnel creation
+  - Added `unref()` for healthcheck interval to allow process exit
+  - Proper cleanup of SSH processes and timers
+
+- **Remote Container Status** — Fixed incorrect status detection for remote containers
+  - Corrected Docker API connection to use SSH tunnel
+  - Fixed container matching with services via Docker labels
+
+### Documentation
+
+- Added `docs/REMOTE_DOCKER.md` — Complete guide for remote Docker setup
+- Added `docs/REMOTE_DISCOVERY.md` — Remote project discovery documentation
+- Added `TEST_COMPARISON.md` — Comparative analysis of MCP vs SSH commands
+- Updated `docs/API_REFERENCE.md` — Added new discovery and profile commands
+- Updated `docs/sprints/SPRINT_5_REMOTE_DOCKER.md` — Sprint completion details
+
+### Testing
+
+- Added 46 new tests for remote Docker functionality
+  - Unit tests for DockerClient with SSH (21 tests)
+  - Unit tests for ProfileTool (13 tests)
+  - Integration tests for remote Docker (12 tests)
+- All 178 tests passing
+- Comparative testing: MCP vs SSH (MCP scores 29/30 vs SSH 13/30)
+
+---
+
 ## [1.0.4] - 2026-01-02
 
 ### Added
@@ -201,15 +354,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Future Releases
 
-### Planned for v1.1.0
+### Planned for v1.2.0
 - Additional database adapters (MySQL, MongoDB)
 - Enhanced error messages
-- Performance optimizations
+- Performance optimizations (caching for discovery)
 
 ### Planned for v2.0.0
 - Docker Swarm support
 - Kubernetes support
-- Remote Docker host support
 - Web UI for monitoring
 
 ---

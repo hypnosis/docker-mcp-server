@@ -10,7 +10,7 @@ import {
 import { logger } from '../utils/logger.js';
 import type { SSHConfig } from '../utils/ssh-config.js';
 import { RemoteProjectDiscovery } from '../discovery/remote-discovery.js';
-import { getDockerClient } from '../utils/docker-client.js';
+import { getDockerClient, getDockerClientForProfile } from '../utils/docker-client.js';
 
 export class DiscoveryTools {
   private sshConfig: SSHConfig | null;
@@ -25,34 +25,20 @@ export class DiscoveryTools {
   getTools(): Tool[] {
     return [
       {
-        name: 'docker_discover_projects',
-        description: 'Discover all Docker projects on remote server. Uses Docker labels only (~2s). For detailed info about specific project, use docker_project_status',
+        name: 'docker_projects',
+        description: 'List all Docker projects with their status. Fast mode using Docker labels only (~2s). Use docker_container_list({project: "name"}) for detailed container info.',
         inputSchema: {
           type: 'object',
           properties: {
-            path: {
+            profile: {
               type: 'string',
-              description: 'Base path to search for projects (default: from profile or /var/www)',
-            },
-          },
-        },
-      },
-      {
-        name: 'docker_project_status',
-        description: 'Get detailed status for a specific project',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            project: {
-              type: 'string',
-              description: 'Project name',
+              description: 'Profile name from profiles.json (default: local Docker)',
             },
             path: {
               type: 'string',
               description: 'Base path to search for projects (default: from profile or /var/www)',
             },
           },
-          required: ['project'],
         },
       },
     ];
@@ -66,11 +52,8 @@ export class DiscoveryTools {
 
     try {
       switch (name) {
-        case 'docker_discover_projects':
-          return await this.handleDiscoverProjects(args);
-        
-        case 'docker_project_status':
-          return await this.handleProjectStatus(args);
+        case 'docker_projects':
+          return await this.handleProjects(args);
         
         default:
           throw new Error(`Unknown tool: ${name}`);
@@ -90,96 +73,131 @@ export class DiscoveryTools {
   }
 
   /**
-   * Handle discover projects
+   * Helper: get SSH config for profile
+   * Returns null for local profile or undefined profile
    */
-  private async handleDiscoverProjects(args: any) {
-    // Check if remote mode
-    if (!this.sshConfig) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: 'Error: docker_discover_projects only works with remote Docker. Set up SSH configuration first.',
-          },
-        ],
-        isError: true,
-      };
+  private getSSHConfigForProfile(profile?: string): SSHConfig | null {
+    if (!profile) {
+      return null; // Local Docker
     }
 
-    // Get Docker client wrapper (handles SSH tunnel)
-    const dockerClient = getDockerClient(this.sshConfig);
+    // Load profile configuration
+    const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
+    if (!profilesFile) {
+      logger.warn('DOCKER_MCP_PROFILES_FILE not set, using local Docker');
+      return null;
+    }
 
-    // Create remote discovery instance with wrapper
-    const discovery = new RemoteProjectDiscovery(this.sshConfig, dockerClient);
-
-    // Discover projects
-    const result = await discovery.discoverProjects({
-      sshConfig: this.sshConfig,
-      dockerClient: dockerClient.getClient(),
-      basePath: args?.path,
-    });
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        },
-      ],
-    };
+    try {
+      const { loadProfilesFile, profileDataToSSHConfig } = require('../utils/profiles-file.js');
+      const fileResult = loadProfilesFile(profilesFile);
+      
+      if (fileResult.errors.length > 0 || !fileResult.config) {
+        logger.warn(`Failed to load profiles file: ${fileResult.errors.join(', ')}`);
+        return null;
+      }
+      
+      const profileData = fileResult.config.profiles[profile];
+      if (!profileData) {
+        logger.warn(`Profile "${profile}" not found, using local Docker`);
+        return null;
+      }
+      
+      // Check if local mode
+      if (profileData.mode === 'local') {
+        return null;
+      }
+      
+      // Convert to SSHConfig
+      return profileDataToSSHConfig(profileData);
+    } catch (error: any) {
+      logger.warn(`Failed to load profile "${profile}": ${error.message}`);
+      return null;
+    }
   }
 
   /**
-   * Handle project status
+   * Handle projects list
+   * Works for both local and remote Docker using Docker Compose labels
    */
-  private async handleProjectStatus(args: any) {
-    if (!args?.project) {
-      throw new Error('project parameter is required');
-    }
+  private async handleProjects(args: any) {
+    const { getDockerClientForProfile } = await import('../utils/docker-client.js');
+    
+    // Get Docker client (works for both local and remote)
+    // getDockerClientForProfile() without args returns local client
+    const dockerClient = getDockerClientForProfile(args?.profile);
 
-    // Check if remote mode
-    if (!this.sshConfig) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: 'Error: docker_project_status only works with remote Docker. Set up SSH configuration first.',
-          },
-        ],
-        isError: true,
-      };
-    }
+    const docker = dockerClient.getClient();
 
-    // Get Docker client wrapper (handles SSH tunnel)
-    const dockerClient = getDockerClient(this.sshConfig);
-
-    // Create remote discovery instance with wrapper
-    const discovery = new RemoteProjectDiscovery(this.sshConfig, dockerClient);
-
-    // Get project status
-    const project = await discovery.getProjectStatus(args.project, {
-      sshConfig: this.sshConfig,
-      dockerClient: dockerClient.getClient(),
-      basePath: args?.path,
+    // Get all containers with compose labels
+    const allContainers = await docker.listContainers({ all: true });
+    
+    const containersWithLabels = allContainers.filter(container => {
+      const labels = container.Labels || {};
+      return Object.keys(labels).some(key => key.startsWith('com.docker.compose.'));
     });
 
-    if (!project) {
+    if (containersWithLabels.length === 0) {
       return {
         content: [
           {
             type: 'text',
-            text: `Error: Project "${args.project}" not found`,
+            text: 'No Docker projects found with Compose labels.',
           },
         ],
-        isError: true,
       };
     }
+
+    // Group containers by project name from labels
+    const projectsMap = new Map<string, { running: number; total: number }>();
+    
+    containersWithLabels.forEach(container => {
+      const labels = container.Labels || {};
+      const projectName = labels['com.docker.compose.project'] || 'default';
+      
+      if (!projectsMap.has(projectName)) {
+        projectsMap.set(projectName, { running: 0, total: 0 });
+      }
+      
+      const project = projectsMap.get(projectName)!;
+      project.total++;
+      if (container.State === 'running') {
+        project.running++;
+      }
+    });
+
+    // Calculate summary
+    const projects = Array.from(projectsMap.entries()).map(([name, data]) => ({
+      name,
+      running: data.running,
+      total: data.total,
+      status: data.running === data.total ? 'running' : data.running === 0 ? 'stopped' : 'partial',
+    }));
+
+    const summary = {
+      total: projects.length,
+      running: projects.filter(p => p.status === 'running').length,
+      partial: projects.filter(p => p.status === 'partial').length,
+      stopped: projects.filter(p => p.status === 'stopped').length,
+    };
+
+    // Format result
+    const output = [
+      `Found ${summary.total} projects:\n`,
+      `- Running: ${summary.running}`,
+      `- Partial: ${summary.partial}`,
+      `- Stopped: ${summary.stopped}\n`,
+      ...projects.map(p => {
+        const statusIcon = p.status === 'running' ? '✅' : p.status === 'partial' ? '⚠️' : '❌';
+        return `${statusIcon} ${p.name} (${p.running}/${p.total} running)`;
+      }),
+    ].join('\n');
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(project, null, 2),
+          text: output,
         },
       ],
     };
