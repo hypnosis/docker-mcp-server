@@ -22,11 +22,19 @@ export interface ProfilesConfig {
  * SSH profile data in config file
  */
 export interface SSHProfileData {
-  host: string;
-  username: string;
+  /** Profile mode: 'local' for local Docker, 'remote' or undefined for remote Docker */
+  mode?: 'local' | 'remote';
+  /** Server address (required for remote mode) */
+  host?: string;
+  /** Username for SSH connection (required for remote mode) */
+  username?: string;
+  /** SSH port (default: 22) */
   port?: number;
+  /** Path to private SSH key */
   privateKeyPath?: string;
+  /** Passphrase for encrypted SSH key */
   passphrase?: string;
+  /** Password for authentication (not recommended for production) */
   password?: string;
   /** Base path for Docker projects on remote server (e.g., "/var/www") */
   projectsPath?: string;
@@ -86,19 +94,37 @@ export function loadProfilesFile(filePath: string): ProfilesFileResult {
 
       const profile = data as any;
 
-      // Validate required fields
+      // Check if this is a local mode profile
+      if (profile.mode === 'local') {
+        // For local mode, only mode is required
+        const profileData: SSHProfileData = {
+          mode: 'local',
+        };
+        
+        // projectsPath is optional even for local
+        if (profile.projectsPath && typeof profile.projectsPath === 'string') {
+          profileData.projectsPath = profile.projectsPath.trim();
+        }
+        
+        profiles[name] = profileData;
+        logger.debug(`Profile "${name}" configured for LOCAL mode`);
+        continue;
+      }
+
+      // For remote mode (mode === 'remote' or mode not specified), validate required fields
       if (!profile.host || typeof profile.host !== 'string') {
-        errors.push(`Profile "${name}" must have a "host" string`);
+        errors.push(`Profile "${name}" must have a "host" string (or set mode: "local" for local Docker)`);
         continue;
       }
 
       if (!profile.username || typeof profile.username !== 'string') {
-        errors.push(`Profile "${name}" must have a "username" string`);
+        errors.push(`Profile "${name}" must have a "username" string (or set mode: "local" for local Docker)`);
         continue;
       }
 
-      // Build profile
+      // Build remote profile
       const profileData: SSHProfileData = {
+        mode: profile.mode === 'remote' ? 'remote' : undefined, // Explicitly set if specified
         host: profile.host.trim(),
         username: profile.username.trim(),
       };
@@ -173,8 +199,21 @@ export function loadProfilesFile(filePath: string): ProfilesFileResult {
 
 /**
  * Convert profile data to SSHConfig
+ * @throws Error with code 'LOCAL_MODE' if profile is configured for local Docker
  */
 export function profileDataToSSHConfig(data: SSHProfileData): SSHConfig {
+  // Check if this is a local mode profile
+  if (data.mode === 'local') {
+    const error = new Error('Profile is configured for LOCAL mode') as Error & { code: string };
+    error.code = 'LOCAL_MODE';
+    throw error;
+  }
+
+  // For remote profiles, host and username are required
+  if (!data.host || !data.username) {
+    throw new Error('Profile must have host and username for remote mode');
+  }
+
   return {
     host: data.host,
     username: data.username,
@@ -182,6 +221,7 @@ export function profileDataToSSHConfig(data: SSHProfileData): SSHConfig {
     privateKeyPath: data.privateKeyPath,
     passphrase: data.passphrase,
     password: data.password,
+    projectsPath: data.projectsPath,
   };
 }
 

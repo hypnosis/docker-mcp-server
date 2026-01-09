@@ -98,6 +98,7 @@ export class ComposeParser {
         build: config.build,
         ports: this.parsePorts(config.ports),
         environment: this.parseEnvironment(config.environment),
+        working_dir: config.working_dir || config.workingDir,
         type: this.detectServiceType(config),
       };
     }

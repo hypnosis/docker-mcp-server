@@ -65,28 +65,36 @@ To manage multiple remote Docker servers elegantly, use a **profiles configurati
 
 ```json
 {
-  "default": "production",
+  "default": "local",
   "profiles": {
+    "local": {
+      "mode": "local"
+    },
     "production": {
       "host": "prod.example.com",
       "username": "deployer",
       "port": 22,
-      "privateKeyPath": "~/.ssh/id_rsa_prod"
+      "privateKeyPath": "~/.ssh/id_rsa_prod",
+      "projectsPath": "/var/www"
     },
     "staging": {
       "host": "staging.example.com",
       "username": "deployer",
       "port": 2222,
-      "privateKeyPath": "~/.ssh/id_rsa_staging"
+      "privateKeyPath": "~/.ssh/id_rsa_staging",
+      "projectsPath": "/var/www"
     },
     "development": {
       "host": "dev.example.com",
       "username": "developer",
-      "port": 22
+      "port": 22,
+      "projectsPath": "/home/developer/projects"
     }
   }
 }
 ```
+
+**Note:** The `"local"` profile with `"mode": "local"` is used for local Docker. When no profile is specified in commands, local Docker is used by default.
 
 **Step 2:** Configure MCP to use the profiles file:
 
@@ -280,6 +288,41 @@ docker_compose_down({volumes: false})
 // Scale services
 docker_compose_up({scale: {web: 3, worker: 2}})
 ```
+
+### Profile Parameter — Parallel Access to LOCAL and REMOTE
+
+**New in v1.2.0:** All commands now support an optional `profile` parameter for specifying the target environment. This allows you to work with both LOCAL and REMOTE Docker in the same session without restarting the MCP server.
+
+**Default Behavior:** When `profile` is not specified, commands use LOCAL Docker.
+
+**Examples:**
+
+```typescript
+// LOCAL Docker (default)
+docker_container_list()
+
+// REMOTE Docker (production profile)
+docker_container_list({ profile: "prod" })
+
+// Parallel comparison of environments
+docker_env_list({ service: "web" })                    // LOCAL
+docker_env_list({ service: "web", profile: "prod" })   // REMOTE
+
+// Testing locally, checking remote
+docker_exec({ service: "web", command: "npm test" })                    // LOCAL
+docker_container_logs({ service: "web", profile: "staging" })          // REMOTE
+
+// Monitoring all environments
+docker_db_status({ service: "postgres" })                    // LOCAL
+docker_db_status({ service: "postgres", profile: "staging" }) // STAGING
+docker_db_status({ service: "postgres", profile: "prod" })    // PROD
+```
+
+**Benefits:**
+- ✅ No server restart needed to switch environments
+- ✅ Parallel access to multiple environments
+- ✅ Quick comparison between local and remote
+- ✅ Better workflow: test locally → check staging → deploy to prod
 
 ### Database Operations
 

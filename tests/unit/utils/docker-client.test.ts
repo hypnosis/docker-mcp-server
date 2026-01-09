@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DockerClient, getDockerClient, resetDockerClient } from '../../../src/utils/docker-client.js';
+import { DockerClient, getDockerClient, resetDockerClient, getDockerClientForProfile, clearClientPool } from '../../../src/utils/docker-client.js';
 import type { SSHConfig } from '../../../src/utils/ssh-config.js';
 import Docker from 'dockerode';
 import { existsSync, unlinkSync } from 'fs';
@@ -428,6 +428,69 @@ describe('DockerClient - Remote SSH', () => {
       
       // Verify existsSync was called to check socket
       expect(existsSync).toHaveBeenCalled();
+    });
+  });
+
+  describe('Profile-based Client Pool', () => {
+    beforeEach(() => {
+      clearClientPool();
+      resetDockerClient();
+      vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+      clearClientPool();
+      resetDockerClient();
+    });
+
+    it('should return local client when profile is not specified', () => {
+      const client1 = getDockerClientForProfile();
+      const client2 = getDockerClientForProfile();
+      
+      // Should return the same local client instance (cached)
+      expect(client1).toBe(client2);
+    });
+
+    it('should return local client when profile is undefined', () => {
+      const client1 = getDockerClientForProfile(undefined);
+      const client2 = getDockerClientForProfile();
+      
+      // Should return the same local client instance
+      expect(client1).toBe(client2);
+    });
+
+    it('should throw error when profile specified but file not set', () => {
+      // Set invalid profiles file path
+      const originalEnv = process.env.DOCKER_MCP_PROFILES_FILE;
+      delete process.env.DOCKER_MCP_PROFILES_FILE;
+      
+      // Should throw error when profile is specified but file is not set
+      expect(() => {
+        getDockerClientForProfile('nonexistent');
+      }).toThrow('DOCKER_MCP_PROFILES_FILE environment variable not set');
+      
+      // Restore
+      if (originalEnv) {
+        process.env.DOCKER_MCP_PROFILES_FILE = originalEnv;
+      }
+    });
+
+    it('should clear client pool', () => {
+      const client1 = getDockerClientForProfile();
+      
+      clearClientPool();
+      
+      // After clearing, should create new local client
+      const client2 = getDockerClientForProfile();
+      
+      // Should be different instances (pool was cleared)
+      expect(client1).not.toBe(client2);
+    });
+
+    it('should export pool functions', () => {
+      // Test that functions are exported and callable
+      expect(typeof getDockerClientForProfile).toBe('function');
+      expect(typeof clearClientPool).toBe('function');
     });
   });
 });

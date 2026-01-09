@@ -17,7 +17,7 @@ export default defineConfig({
       ],
     },
     include: ['tests/**/*.test.ts'],
-    exclude: ['node_modules', 'dist'],
+    exclude: ['node_modules', 'dist', 'tests/e2e/mcp-tools.test.ts'], // Основной файл - только для ручного запуска
   },
   resolve: {
     // For proper ESM and TypeScript support

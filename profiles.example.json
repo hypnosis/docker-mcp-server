@@ -1,22 +1,28 @@
 {
-  "default": "production",
+  "default": "local",
   "profiles": {
+    "local": {
+      "mode": "local"
+    },
     "production": {
       "host": "prod.example.com",
       "username": "deployer",
       "port": 22,
-      "privateKeyPath": "~/.ssh/id_rsa_prod"
+      "privateKeyPath": "~/.ssh/id_rsa_prod",
+      "projectsPath": "/var/www"
     },
     "staging": {
       "host": "staging.example.com",
       "username": "deployer",
       "port": 2222,
-      "privateKeyPath": "~/.ssh/id_rsa_staging"
+      "privateKeyPath": "~/.ssh/id_rsa_staging",
+      "projectsPath": "/var/www"
     },
     "development": {
       "host": "dev.example.com",
       "username": "developer",
-      "port": 22
+      "port": 22,
+      "projectsPath": "/home/developer/projects"
     }
   }
 }

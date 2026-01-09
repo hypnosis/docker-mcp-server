@@ -11,6 +11,7 @@ import { spawn } from 'child_process';
 import { logger } from './logger.js';
 import type { SSHConfig } from './ssh-config.js';
 import { retryWithTimeout, createNetworkRetryPredicate } from './retry.js';
+import { loadProfilesFile, profileDataToSSHConfig } from './profiles-file.js';
 
 /**
  * Dockerode wrapper for centralized Docker API management
@@ -453,4 +454,153 @@ export function cleanupDockerClient(): void {
   if (dockerClientInstance) {
     dockerClientInstance.cleanup();
   }
+}
+
+// ============================================================================
+// Profile-based Docker Client Pool
+// ============================================================================
+
+/**
+ * Pool of Docker clients by profile name
+ * Allows parallel access to multiple Docker environments (local and remote)
+ */
+const clientPool: Map<string, DockerClient> = new Map();
+
+/**
+ * Local Docker client (cached)
+ */
+let localDockerClient: DockerClient | null = null;
+
+/**
+ * Load profile configuration from profiles.json
+ * @param profileName - Profile name to load
+ * @returns SSHConfig or null for local mode
+ * @throws Error if profile not found or invalid
+ */
+function loadProfileConfig(profileName: string): SSHConfig | null {
+  const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
+  
+  if (!profilesFile) {
+    throw new Error('DOCKER_MCP_PROFILES_FILE environment variable not set. Cannot load profile.');
+  }
+
+  // Load profiles file (synchronous!)
+  const fileResult = loadProfilesFile(profilesFile);
+  
+  if (fileResult.errors.length > 0) {
+    throw new Error(`Failed to load profiles file: ${fileResult.errors.join(', ')}`);
+  }
+  
+  if (!fileResult.config) {
+    throw new Error(`Profiles file not found or empty: ${profilesFile}`);
+  }
+  
+  // Get profile data
+  const profileData = fileResult.config.profiles[profileName];
+  if (!profileData) {
+    const available = Object.keys(fileResult.config.profiles).join(', ');
+    throw new Error(`Profile "${profileName}" not found. Available profiles: ${available}`);
+  }
+  
+  // Check if local mode
+  if (profileData.mode === 'local') {
+    logger.info(`Profile "${profileName}" is configured for LOCAL mode`);
+    return null;
+  }
+  
+  // Convert to SSHConfig
+  try {
+    const config = profileDataToSSHConfig(profileData);
+    logger.info(`Profile "${profileName}" loaded for REMOTE mode (${config.host})`);
+    return config;
+  } catch (error: any) {
+    if (error.code === 'LOCAL_MODE') {
+      logger.info(`Profile "${profileName}" is configured for LOCAL mode`);
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get Docker client for specific profile
+ * @param profileName - Profile name (undefined = local Docker)
+ * @returns DockerClient instance
+ * 
+ * @example
+ * // Local Docker (default)
+ * const localClient = getDockerClientForProfile();
+ * 
+ * // Remote Docker (production profile)
+ * const prodClient = getDockerClientForProfile('production');
+ */
+export function getDockerClientForProfile(profileName?: string): DockerClient {
+  // No profile specified = local Docker
+  if (!profileName) {
+    if (!localDockerClient) {
+      localDockerClient = new DockerClient();
+      logger.debug('Created LOCAL Docker client');
+    }
+    return localDockerClient;
+  }
+  
+  // Check if client already exists in pool
+  if (clientPool.has(profileName)) {
+    logger.debug(`Using cached Docker client for profile: ${profileName}`);
+    return clientPool.get(profileName)!;
+  }
+  
+  // Load profile configuration (synchronous!)
+  logger.info(`Loading Docker client for profile: ${profileName}`);
+  const sshConfig = loadProfileConfig(profileName);
+  
+  // Create client (local or remote based on config)
+  const client = new DockerClient(sshConfig);
+  
+  // Cache in pool
+  clientPool.set(profileName, client);
+  logger.info(`Docker client cached for profile: ${profileName}`);
+  
+  return client;
+}
+
+/**
+ * Clear client pool (for testing or cleanup)
+ */
+export function clearClientPool(): void {
+  logger.info(`Clearing Docker client pool (${clientPool.size} clients)`);
+  
+  // Cleanup all clients in pool
+  for (const [profileName, client] of clientPool.entries()) {
+    try {
+      client.cleanup();
+      logger.debug(`Cleaned up client for profile: ${profileName}`);
+    } catch (error: any) {
+      logger.warn(`Failed to cleanup client for profile ${profileName}: ${error.message}`);
+    }
+  }
+  
+  clientPool.clear();
+  
+  // Cleanup local client
+  if (localDockerClient) {
+    try {
+      localDockerClient.cleanup();
+      logger.debug('Cleaned up LOCAL Docker client');
+    } catch (error: any) {
+      logger.warn(`Failed to cleanup local client: ${error.message}`);
+    }
+    localDockerClient = null;
+  }
+}
+
+/**
+ * Cleanup all Docker clients in pool (for graceful shutdown)
+ */
+export function cleanupAllDockerClients(): void {
+  // Cleanup singleton
+  cleanupDockerClient();
+  
+  // Cleanup pool
+  clearClientPool();
 }

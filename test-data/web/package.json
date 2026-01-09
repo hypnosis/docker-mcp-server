@@ -1,0 +1,12 @@
+{
+  "name": "test-web-app",
+  "version": "1.0.0",
+  "description": "Test web application for MCP server testing",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo 'Running tests...' && exit 0",
+    "start": "node index.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

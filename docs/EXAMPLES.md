@@ -765,6 +765,67 @@ docker_healthcheck()
 docker_container_logs("web", {lines: 20})
 ```
 
+### Profile Parameter — Parallel Access to LOCAL and REMOTE
+
+**New in v1.2.0:** Work with both local and remote environments in the same session.
+
+**Scenario 1: Compare Local vs Production**
+
+```typescript
+// Compare environment variables
+docker_env_list({ service: "web" })                    // LOCAL
+docker_env_list({ service: "web", profile: "prod" })   // PRODUCTION
+
+// Compare container status
+docker_container_list()                    // LOCAL
+docker_container_list({ profile: "prod" })  // PRODUCTION
+
+// Compare database status
+docker_db_status({ service: "postgres" })                    // LOCAL
+docker_db_status({ service: "postgres", profile: "prod" })    // PRODUCTION
+```
+
+**Scenario 2: Test Locally, Deploy to Remote**
+
+```typescript
+// Test locally first
+docker_exec({ service: "web", command: "npm test" })                    // LOCAL
+docker_container_logs({ service: "web", lines: 50 })                  // LOCAL
+
+// Deploy to staging
+docker_compose_up({ profile: "staging", build: true })                  // STAGING
+docker_container_logs({ service: "web", profile: "staging", lines: 50 }) // STAGING
+
+// Deploy to production after staging tests pass
+docker_compose_up({ profile: "prod", build: true })                     // PRODUCTION
+```
+
+**Scenario 3: Monitor All Environments**
+
+```typescript
+// Check health across all environments
+docker_healthcheck()                    // LOCAL
+docker_healthcheck({ profile: "staging" }) // STAGING
+docker_healthcheck({ profile: "prod" })    // PRODUCTION
+
+// Monitor database across environments
+docker_db_status({ service: "postgres" })                    // LOCAL
+docker_db_status({ service: "postgres", profile: "staging" }) // STAGING
+docker_db_status({ service: "postgres", profile: "prod" })    // PRODUCTION
+```
+
+**Scenario 4: Development Workflow**
+
+```typescript
+// Develop and test locally
+docker_compose_up()                    // LOCAL
+docker_exec({ service: "web", command: "npm run dev" }) // LOCAL
+
+// Check production status while developing
+docker_container_list({ profile: "prod" })              // PRODUCTION
+docker_container_logs({ service: "web", profile: "prod", lines: 20 }) // PRODUCTION
+```
+
 ### Troubleshooting Remote Servers
 
 ```typescript

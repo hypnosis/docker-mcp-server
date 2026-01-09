@@ -33,6 +33,10 @@ export class DatabaseTools {
               type: 'string',
               description: 'Database service name from docker-compose.yml',
             },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
+            },
             project: {
               type: 'string',
               description: 'Project name (auto-detected if not provided)',
@@ -68,6 +72,10 @@ export class DatabaseTools {
             service: {
               type: 'string',
               description: 'Database service name',
+            },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
             },
             project: {
               type: 'string',
@@ -105,6 +113,10 @@ export class DatabaseTools {
             service: {
               type: 'string',
               description: 'Database service name',
+            },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
             },
             project: {
               type: 'string',
@@ -146,6 +158,10 @@ export class DatabaseTools {
             service: {
               type: 'string',
               description: 'Database service name',
+            },
+            profile: {
+              type: 'string',
+              description: 'Profile name from profiles.json (default: local Docker)',
             },
             project: {
               type: 'string',

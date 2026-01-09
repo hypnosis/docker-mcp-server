@@ -42,6 +42,9 @@ export interface ServiceConfig {
   /** Environment variables */
   environment?: Record<string, string>;
   
+  /** Working directory */
+  working_dir?: string;
+  
   /** Тип сервиса (для database adapters в Sprint 2) */
   type: 'generic' | 'postgresql' | 'redis' | 'sqlite' | 'mysql' | 'mongodb';
 }

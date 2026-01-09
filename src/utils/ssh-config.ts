@@ -389,7 +389,14 @@ function loadSSHConfigFromFile(
     return { config: null, errors };
   }
 
+  // Check if profile is configured for local mode
+  if (profileData.mode === 'local') {
+    logger.info(`Profile "${targetProfile}" is configured for LOCAL mode`);
+    return { config: null, errors: [] }; // null = local Docker
+  }
+
   // Convert to SSHConfig
+  try {
   const config = profileDataToSSHConfig(profileData);
 
   // Validate
@@ -401,6 +408,17 @@ function loadSSHConfigFromFile(
 
   logger.info(`SSH config loaded from file: ${filePath} (profile: ${targetProfile})`);
   return { config, errors: [] };
+  } catch (error: any) {
+    // Handle LOCAL_MODE error (should not happen as we check above, but for safety)
+    if (error.code === 'LOCAL_MODE') {
+      logger.info(`Profile "${targetProfile}" is configured for LOCAL mode`);
+      return { config: null, errors: [] };
+    }
+    
+    // Other errors
+    errors.push(`Failed to convert profile to SSH config: ${error.message}`);
+    return { config: null, errors };
+  }
 }
 
 /**
