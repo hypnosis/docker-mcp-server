@@ -137,8 +137,17 @@ export class ContainerManager {
     const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
     
     logger.info(`Starting container: ${serviceName}`);
-    await this.withRetry(() => container.start());
-    logger.info(`Container ${serviceName} started successfully`);
+    try {
+      await this.withRetry(() => container.start());
+      logger.info(`Container ${serviceName} started successfully`);
+    } catch (error: any) {
+      // HTTP 304 "container already started" is not an error
+      if (error.statusCode === 304 || (error.reason && error.reason.includes('already started'))) {
+        logger.info(`Container ${serviceName} already started`);
+        return;
+      }
+      throw error;
+    }
   }
 
   /**
