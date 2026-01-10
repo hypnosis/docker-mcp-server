@@ -3,9 +3,9 @@
  * Run: npm run test:e2e:compose
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { ContainerTools } from '../../../src/tools/container-tools.js';
-import { verifyDocker, DOCKER_TIMEOUT } from '../setup.js';
+import { verifyDocker, DOCKER_TIMEOUT, restartTestContainers } from '../setup.js';
 
 describe('Compose Commands E2E', () => {
   let containerTools: ContainerTools;
@@ -14,6 +14,12 @@ describe('Compose Commands E2E', () => {
     await verifyDocker(); // Проверяем что Docker работает (контейнеры уже подняты глобально)
     containerTools = new ContainerTools();
   }, DOCKER_TIMEOUT);
+
+  afterAll(async () => {
+    // ВАЖНО: После compose-down перезапускаем тестовые контейнеры для последующих тестов
+    // compose-down останавливает контейнеры, и они нужны для других тестов
+    await restartTestContainers();
+  }, DOCKER_TIMEOUT * 2);
 
   it('docker_compose_up - should start services', async () => {
     const result = await containerTools.handleCall({

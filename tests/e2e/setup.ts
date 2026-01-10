@@ -15,8 +15,9 @@ let containersStarted = false;
 
 /**
  * Ждём готовности контейнера через healthcheck или простую проверку
+ * Экспортируем для использования в afterAll тестов
  */
-async function waitForContainerReady(docker: any, containerName: string): Promise<boolean> {
+export async function waitForContainerReady(docker: any, containerName: string): Promise<boolean> {
   const startTime = Date.now();
   
   while (Date.now() - startTime < MAX_WAIT_TIME) {
@@ -178,4 +179,46 @@ export async function globalTeardownE2E() {
 export async function verifyDocker() {
   const docker = getDockerClient();
   await docker.ping();
+}
+
+/**
+ * Перезапустить тестовые контейнеры
+ * Используется после тестов которые могут остановить контейнеры (например, compose-down)
+ */
+export async function restartTestContainers() {
+  const composeFile = resolve(process.cwd(), 'docker-compose.test.yml');
+  console.log('🔄 Restarting test containers (after compose-down)...');
+  
+  // Stop and remove existing test containers
+  try {
+    spawnSync('docker', ['compose', '-f', composeFile, 'down', '--remove-orphans'], {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+  } catch (error) {
+    // Ignore - containers might not exist
+  }
+  
+  // Start test containers with --wait (waits for healthchecks)
+  const upResult = spawnSync('docker', ['compose', '-f', composeFile, 'up', '-d', '--wait'], {
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+  
+  if (upResult.status !== 0 && upResult.status !== null) {
+    console.error('❌ Failed to restart containers:', upResult.stderr?.toString());
+    throw new Error('Failed to restart test containers');
+  }
+  
+  // Additional wait for containers to be fully ready (healthcheck might take time)
+  const docker = getDockerClient();
+  const postgresReady = await waitForContainerReady(docker, 'test-postgres');
+  const redisReady = await waitForContainerReady(docker, 'test-redis');
+  const webReady = await waitForContainerReady(docker, 'test-web');
+  
+  if (postgresReady && redisReady && webReady) {
+    console.log('✓ Test containers restarted and ready');
+  } else {
+    console.warn('⚠️  Some containers may not be fully ready, but continuing...');
+  }
 }
