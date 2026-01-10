@@ -9,7 +9,9 @@ import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 
 // Mock profile-resolver
 vi.mock('../../src/utils/profile-resolver.js', () => ({
-  resolveProfile: vi.fn(),
+  resolveSSHConfig: vi.fn(),
+  getAvailableProfiles: vi.fn().mockReturnValue([]),
+  getDefaultProfile: vi.fn().mockReturnValue('local'),
 }));
 
 // Mock adapters as classes
@@ -94,10 +96,10 @@ vi.mock('../../src/managers/env-manager.js', () => {
   };
 });
 
-import { resolveProfile } from '../../src/utils/profile-resolver.js';
+import { resolveSSHConfig } from '../../src/utils/profile-resolver.js';
 import { ContainerManager } from '../../src/managers/container-manager.js';
 
-const mockResolveProfile = vi.mocked(resolveProfile);
+const mockResolveSSHConfig = vi.mocked(resolveSSHConfig);
 const MockedContainerManager = vi.mocked(ContainerManager);
 
 describe('DatabaseTools - Profile Validation (DI)', () => {
@@ -114,8 +116,8 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
 
   describe('🔴 EXPLICIT ERRORS - Profile specified but not found', () => {
     it('should throw explicit error when profile specified but not found', async () => {
-      // Mock: profile "invalid" не найден
-      mockResolveProfile.mockReturnValue(null);
+      // Mock: profile "invalid" не найден -> resolveSSHConfig возвращает null
+      mockResolveSSHConfig.mockReturnValue(null);
 
       const request: CallToolRequest = {
         method: 'tools/call',
@@ -131,7 +133,7 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
 
       const result = await databaseTools.handleCall(request);
 
-      // ✅ Должна быть ЯВНАЯ ошибка
+      // ✅ Должна быть ЯВНАЯ ошибка (validateProfile выбрасывает ошибку когда profile указан, но sshConfig = null)
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('PROFILE ERROR');
       expect(result.content[0].text).toContain('invalid-profile');
@@ -139,7 +141,8 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
     });
 
     it('should provide helpful error message with troubleshooting steps', async () => {
-      mockResolveProfile.mockReturnValue(null);
+      // Mock: profile не найден -> resolveSSHConfig возвращает null
+      mockResolveSSHConfig.mockReturnValue(null);
 
       const request: CallToolRequest = {
         method: 'tools/call',
@@ -159,15 +162,15 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
       
       // Проверяем, что ошибка содержит полезную информацию
       expect(errorText).toContain('Possible causes:');
-      expect(errorText).toContain('Profile "zaicylab" not found');
-      expect(errorText).toContain('profiles.json');
+      expect(errorText).toContain('Profile "zaicylab"');
+      expect(errorText).toContain('DOCKER_PROFILES');
     });
   });
 
   describe('✅ SUCCESS - Local Docker (no profile)', () => {
     it('should work with local Docker when no profile specified', async () => {
       // Нет profile -> sshConfig = null (local)
-      mockResolveProfile.mockReturnValue(null);
+      mockResolveSSHConfig.mockReturnValue(null);
 
       const request: CallToolRequest = {
         method: 'tools/call',
@@ -201,7 +204,7 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
       };
 
       // Profile "zaicylab" найден -> sshConfig
-      mockResolveProfile.mockReturnValue(mockSSHConfig);
+      mockResolveSSHConfig.mockReturnValue(mockSSHConfig);
 
       const request: CallToolRequest = {
         method: 'tools/call',
@@ -233,7 +236,7 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
 
   describe('🎯 DI VALIDATION - Adapters created with managers', () => {
     it('should create adapter with injected dependencies', async () => {
-      mockResolveProfile.mockReturnValue(null);
+      mockResolveSSHConfig.mockReturnValue(null);
 
       await databaseTools.handleCall({
         method: 'tools/call',
@@ -251,7 +254,7 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
     });
 
     it('should create new adapter instance for each request', async () => {
-      mockResolveProfile.mockReturnValue(null);
+      mockResolveSSHConfig.mockReturnValue(null);
 
       // Request 1
       await databaseTools.handleCall({

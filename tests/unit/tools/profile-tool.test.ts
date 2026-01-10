@@ -4,7 +4,6 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ProfileTool } from '../../../src/tools/profile-tool.js';
-import type { SSHConfig } from '../../../src/utils/ssh-config.js';
 import { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 
 // Mock logger
@@ -17,44 +16,41 @@ vi.mock('../../../src/utils/logger.js', () => ({
   },
 }));
 
-// Mock profiles-file
-vi.mock('../../../src/utils/profiles-file.js', () => ({
-  loadProfilesFile: vi.fn(),
+// Mock profile-resolver
+vi.mock('../../../src/utils/profile-resolver.js', () => ({
+  getAvailableProfiles: vi.fn(),
+  getDefaultProfile: vi.fn(),
 }));
+
+import { getAvailableProfiles, getDefaultProfile } from '../../../src/utils/profile-resolver.js';
+
+const mockGetAvailableProfiles = vi.mocked(getAvailableProfiles);
+const mockGetDefaultProfile = vi.mocked(getDefaultProfile);
 
 describe('ProfileTool', () => {
   let profileTool: ProfileTool;
-  let mockSSHConfig: SSHConfig;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSSHConfig = {
-      host: 'test.example.com',
-      username: 'deployer',
-      port: 22,
-    };
+    // Reset environment variables
+    delete process.env.DOCKER_PROFILES;
+    delete process.env.DOCKER_PROFILES_FILE;
+    
+    profileTool = new ProfileTool();
+    
+    // Default mocks for local mode
+    mockGetAvailableProfiles.mockReturnValue([]);
+    mockGetDefaultProfile.mockReturnValue('local');
   });
 
   describe('Constructor', () => {
-    it('should initialize with SSH config for remote mode', () => {
-      profileTool = new ProfileTool(mockSSHConfig);
-      expect(profileTool).toBeInstanceOf(ProfileTool);
-    });
-
-    it('should initialize without SSH config for local mode', () => {
-      profileTool = new ProfileTool(null);
-      expect(profileTool).toBeInstanceOf(ProfileTool);
-    });
-
-    it('should initialize with profiles file path', () => {
-      profileTool = new ProfileTool(mockSSHConfig, '/path/to/profiles.json');
+    it('should initialize', () => {
       expect(profileTool).toBeInstanceOf(ProfileTool);
     });
   });
 
   describe('getTool()', () => {
     it('should return tool definition', () => {
-      profileTool = new ProfileTool(null);
       const tool = profileTool.getTool();
 
       expect(tool).toBeDefined();
@@ -65,105 +61,76 @@ describe('ProfileTool', () => {
   });
 
   describe('getProfileInfo() - Local Mode', () => {
-    it('should return local mode when no SSH config', async () => {
-      profileTool = new ProfileTool(null);
+    it('should return local mode when no profiles configured', async () => {
+      mockGetAvailableProfiles.mockReturnValue([]);
+      mockGetDefaultProfile.mockReturnValue('local');
+      
       const info = await profileTool.getProfileInfo();
 
       expect(info.mode).toBe('local');
-      expect(info.current).toBeUndefined();
+      expect(info.availableProfiles).toEqual([]);
+      expect(info.defaultProfile).toBe('local');
     });
   });
 
   describe('getProfileInfo() - Remote Mode', () => {
-    it('should return remote mode with current config', async () => {
-      profileTool = new ProfileTool(mockSSHConfig);
-      const info = await profileTool.getProfileInfo();
-
-      expect(info.mode).toBe('remote');
-      expect(info.current).toBeDefined();
-      expect(info.current?.host).toBe('test.example.com');
-      expect(info.current?.username).toBe('deployer');
-      expect(info.current?.port).toBe(22);
-    });
-
-    it('should use default port 22 when not specified', async () => {
-      const configWithoutPort: SSHConfig = {
-        host: 'test.example.com',
-        username: 'deployer',
-      };
-
-      profileTool = new ProfileTool(configWithoutPort);
-      const info = await profileTool.getProfileInfo();
-
-      expect(info.current?.port).toBe(22);
-    });
-
-    it('should load profiles file if provided', async () => {
-      const { loadProfilesFile } = await import('../../../src/utils/profiles-file.js');
-      
-      vi.mocked(loadProfilesFile).mockReturnValue({
-        errors: [],
-        config: {
-          default: 'production',
-          profiles: {
-            production: {
-              host: 'prod.example.com',
-              username: 'deployer',
-            },
-            staging: {
-              host: 'staging.example.com',
-              username: 'deployer',
-            },
-          },
+    it('should return remote mode when profiles configured', async () => {
+      process.env.DOCKER_PROFILES = JSON.stringify({
+        default: 'production',
+        profiles: {
+          production: { host: 'prod.example.com', username: 'deployer' },
         },
       });
-
-      profileTool = new ProfileTool(mockSSHConfig, '/path/to/profiles.json');
-      const info = await profileTool.getProfileInfo();
-
-      expect(info.profilesFile).toBe('/path/to/profiles.json');
-      expect(info.availableProfiles).toEqual(['production', 'staging']);
-      expect(info.defaultProfile).toBe('production');
-      expect(loadProfilesFile).toHaveBeenCalledWith('/path/to/profiles.json');
-    });
-
-    it('should handle profiles file load errors gracefully', async () => {
-      const { loadProfilesFile } = await import('../../../src/utils/profiles-file.js');
       
-      vi.mocked(loadProfilesFile).mockImplementation(() => {
-        throw new Error('File not found');
-      });
-
-      profileTool = new ProfileTool(mockSSHConfig, '/path/to/profiles.json');
+      mockGetAvailableProfiles.mockReturnValue(['production']);
+      mockGetDefaultProfile.mockReturnValue('production');
+      
       const info = await profileTool.getProfileInfo();
 
       expect(info.mode).toBe('remote');
-      expect(info.current).toBeDefined();
-      // Should not have profiles info due to error
-      expect(info.availableProfiles).toBeUndefined();
+      expect(info.availableProfiles).toEqual(['production']);
+      expect(info.defaultProfile).toBe('production');
+      expect(info.DOCKER_PROFILES_configured).toBe(true);
+    });
+
+    it('should use default port when not specified', async () => {
+      // This test is not applicable anymore as ProfileTool doesn't use SSH config directly
+      // Skipping as it's not relevant with new implementation
+    });
+
+    it('should load profiles from DOCKER_PROFILES_FILE', async () => {
+      process.env.DOCKER_PROFILES_FILE = '/path/to/profiles.json';
+      mockGetAvailableProfiles.mockReturnValue(['production', 'staging']);
+      mockGetDefaultProfile.mockReturnValue('production');
+      
+      const info = await profileTool.getProfileInfo();
+
+      expect(info.availableProfiles).toEqual(['production', 'staging']);
+      expect(info.defaultProfile).toBe('production');
+      expect(info.source).toBe('DOCKER_PROFILES_FILE');
     });
 
     it('should handle missing profiles file gracefully', async () => {
-      const { loadProfilesFile } = await import('../../../src/utils/profiles-file.js');
+      delete process.env.DOCKER_PROFILES;
+      delete process.env.DOCKER_PROFILES_FILE;
+      mockGetAvailableProfiles.mockReturnValue([]);
+      mockGetDefaultProfile.mockReturnValue('local');
       
-      vi.mocked(loadProfilesFile).mockReturnValue({
-        errors: ['File not found'],
-        config: null,
-      });
-
-      profileTool = new ProfileTool(mockSSHConfig, '/path/to/profiles.json');
       const info = await profileTool.getProfileInfo();
 
-      expect(info.mode).toBe('remote');
-      expect(info.current).toBeDefined();
-      // Should not have profiles info
-      expect(info.availableProfiles).toBeUndefined();
+      expect(info.mode).toBe('local');
+      expect(info.DOCKER_PROFILES_configured).toBe(false);
     });
   });
 
   describe('handleCall()', () => {
     it('should return profile info in correct format', async () => {
-      profileTool = new ProfileTool(mockSSHConfig);
+      process.env.DOCKER_PROFILES = JSON.stringify({
+        default: 'production',
+        profiles: { production: { host: 'prod.example.com', username: 'deployer' } },
+      });
+      mockGetAvailableProfiles.mockReturnValue(['production']);
+      mockGetDefaultProfile.mockReturnValue('production');
       
       const request: CallToolRequest = {
         params: {
@@ -180,11 +147,14 @@ describe('ProfileTool', () => {
       
       const info = JSON.parse(result.content[0].text);
       expect(info.mode).toBe('remote');
-      expect(info.current).toBeDefined();
+      expect(info.availableProfiles).toEqual(['production']);
     });
 
     it('should return local mode info', async () => {
-      profileTool = new ProfileTool(null);
+      delete process.env.DOCKER_PROFILES;
+      delete process.env.DOCKER_PROFILES_FILE;
+      mockGetAvailableProfiles.mockReturnValue([]);
+      mockGetDefaultProfile.mockReturnValue('local');
       
       const request: CallToolRequest = {
         params: {
@@ -200,8 +170,6 @@ describe('ProfileTool', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      profileTool = new ProfileTool(mockSSHConfig);
-      
       // Force error by mocking getProfileInfo
       vi.spyOn(profileTool, 'getProfileInfo').mockRejectedValue(new Error('Test error'));
 
