@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1] - 2026-01-10
+
+### Fixed
+
+#### 🔴 Critical Fix - Container Environment Variables
+- **BUG-010: Environment Variables from Container** — Fixed database adapters reading environment variables from compose file instead of running container
+  - Added `getContainerEnv()` method to `ContainerManager` to get env vars from Docker API (`container.inspect()`)
+  - Database adapters now prioritize environment variables from running container over compose file
+  - Fixes "role postgres does not exist" error when container was started with different compose file
+  - All database operations (`query`, `backup`, `restore`, `status`) now use correct environment variables
+  - Fallback to compose file if container environment unavailable (for backwards compatibility)
+
+### Changed
+
+- **Environment Variables Resolution** — Improved environment variable loading
+  - `PostgreSQLAdapter`, `RedisAdapter`, `SQLiteAdapter` now get env vars from running container first
+  - More reliable connection parameters when container started with different compose file
+  - Better handling of test environments with different compose configurations
+
+---
+
 ## [1.3.0] - 2026-01-10
 
 ### Fixed

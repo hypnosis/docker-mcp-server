@@ -651,7 +651,56 @@ describe('Database Adapters Integration', () => {
 
 ## Best Practices
 
-### 1. Handle Passwords Securely
+### 1. Get Environment Variables from Container (v1.3.1+)
+
+**Important:** Always prioritize environment variables from the running container over compose file.
+
+```typescript
+// ✅ GOOD: Get env from container first, fallback to compose file
+async query(service: string, query: string, options?: QueryOptions, projectConfig?: ProjectConfig): Promise<string> {
+  const project = projectConfig || await this.projectDiscovery.findProject();
+  const serviceConfig = project.services[service];
+  
+  // Get env from running container first (more reliable)
+  const containerEnv = await this.containerManager.getContainerEnv(
+    service, 
+    project.name, 
+    project.composeFile, 
+    project.projectDir
+  );
+  
+  // Fallback to compose file if container env unavailable
+  const composeEnv = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+  const env = containerEnv || composeEnv;
+  
+  const conn = this.getConnectionInfo(serviceConfig, env);
+  // ... rest of method
+}
+```
+
+**Why?**
+- Container may be started with different compose file (e.g., `docker-compose.test.yml`)
+- Environment variables in running container may differ from compose file
+- Prevents "role postgres does not exist" and similar errors
+- More reliable connection parameters
+
+**Example Problem:**
+```yaml
+# docker-compose.yml (discovered)
+postgres:
+  environment:
+    POSTGRES_USER: postgres  # ← Read from here (wrong)
+
+# docker-compose.test.yml (actually running)
+postgres:
+  environment:
+    POSTGRES_USER: testuser  # ← Container has this (correct)
+```
+
+**Solution:**
+Get env vars from `container.inspect().Config.Env` first, fallback to compose file.
+
+### 2. Handle Passwords Securely
 
 ```typescript
 // ❌ BAD: Password in command visible in logs
