@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { logger } from './utils/logger.js';
 import { getDockerClient, cleanupDockerClient, cleanupAllDockerClients } from './utils/docker-client.js';
-import { loadSSHConfig } from './utils/ssh-config.js';
+import { getAvailableProfiles, getDefaultProfile } from './utils/profile-resolver.js';
 import { workspaceManager } from './utils/workspace.js';
 import { ContainerTools } from './tools/container-tools.js';
 import { ExecutorTool } from './tools/executor-tool.js';
@@ -24,10 +24,6 @@ import { EnvTools } from './tools/env-tools.js';
 import { MCPHealthTool } from './tools/mcp-health-tool.js';
 import { ProfileTool } from './tools/profile-tool.js';
 import { DiscoveryTools } from './tools/discovery-tools.js';
-import { adapterRegistry } from './adapters/adapter-registry.js';
-import { PostgreSQLAdapter } from './adapters/postgresql.js';
-import { RedisAdapter } from './adapters/redis.js';
-import { SQLiteAdapter } from './adapters/sqlite.js';
 
 async function main() {
   // If command line arguments exist, use CLI mode
@@ -45,52 +41,31 @@ async function main() {
   const version = packageJson.version || '1.0.0';
   logger.info(`Starting Docker MCP Server v${version}`);
 
-  // Load SSH configuration (if provided)
-  const sshConfigResult = loadSSHConfig();
-  
-  // Log errors only if config was expected but failed (not graceful fallbacks)
-  const hasNonFallbackErrors = sshConfigResult.errors.length > 0 && 
-    !sshConfigResult.errors.some(e => 
-      e.includes('not found') || 
-      e.includes('Falling back to local Docker')
-    );
-  
-  if (hasNonFallbackErrors) {
-    logger.warn('SSH configuration warnings:', sshConfigResult.errors);
-  }
-  
-  const sshConfig = sshConfigResult.config;
-  if (sshConfig) {
-    logger.info(`SSH configuration loaded for remote Docker: ${sshConfig.host}:${sshConfig.port || 22}`);
-  } else {
-    logger.info('Using local Docker (no SSH configuration provided)');
-  }
+  // Load profiles from DOCKER_PROFILES ENV (happens at module import)
+  const profiles = getAvailableProfiles();
+  const defaultProfile = getDefaultProfile();
+  logger.info(`Loaded ${profiles.length} profiles from DOCKER_PROFILES (default: ${defaultProfile})`);
 
-  // Docker check
+  // Docker check (local only at startup, remote connections happen per-tool)
   try {
-    const docker = getDockerClient(sshConfig);
+    const docker = getDockerClient(null); // Local Docker only
     await docker.ping();
+    logger.info('Local Docker connection: OK');
   } catch (error: any) {
-    logger.error('Docker check failed:', error);
+    logger.error('Local Docker check failed:', error);
     process.exit(1);
   }
 
-  // Register Database Adapters
-  adapterRegistry.register('postgresql', new PostgreSQLAdapter());
-  adapterRegistry.register('postgres', new PostgreSQLAdapter()); // alias
-  adapterRegistry.register('redis', new RedisAdapter());
-  adapterRegistry.register('sqlite', new SQLiteAdapter());
-  adapterRegistry.register('sqlite3', new SQLiteAdapter()); // alias
-  logger.info('Database adapters registered: PostgreSQL, Redis, SQLite');
-
   // Initialize tools
-  const containerTools = new ContainerTools(sshConfig);
+  // Note: Database adapters are no longer registered as singletons
+  // They are created per-request with proper dependency injection
+  const containerTools = new ContainerTools();
   const executorTool = new ExecutorTool();
   const databaseTools = new DatabaseTools();
   const envTools = new EnvTools();
-  const mcpHealthTool = new MCPHealthTool(sshConfig);
-  const profileTool = new ProfileTool(sshConfig, process.env.DOCKER_MCP_PROFILES_FILE);
-  const discoveryTools = new DiscoveryTools(sshConfig);
+  const mcpHealthTool = new MCPHealthTool(); // SSH config resolved per-tool call
+  const profileTool = new ProfileTool(); // Profiles loaded from DOCKER_PROFILES ENV
+  const discoveryTools = new DiscoveryTools();
 
   // Create MCP Server
   const server = new Server(
@@ -148,7 +123,6 @@ async function main() {
       ...discoveryTools.getTools(),
     ];
     
-    // Log actual count for debugging
     logger.info(`Returning ${allTools.length} tools to MCP client`);
     logger.debug(`Tool names: ${allTools.map(t => t.name).join(', ')}`);
     

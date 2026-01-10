@@ -19,7 +19,7 @@ import { loadProfilesFile, profileDataToSSHConfig } from './profiles-file.js';
 export class DockerClient {
   private docker: Docker;
   private sshConfig: SSHConfig | null;
-  private isRemote: boolean;
+  public readonly isRemote: boolean; // Public for comparison in getDockerClient
   private activeSocketPath: string | null = null;
   private sshProcessPid: number | null = null;
   private tunnelCreationLock: Promise<string> | null = null;
@@ -39,6 +39,20 @@ export class DockerClient {
       this.docker = new Docker();
       logger.debug('Dockerode client initialized (local)');
     }
+  }
+  
+  /**
+   * Get SSH config for comparison
+   */
+  getSSHConfig(): SSHConfig | null {
+    return this.sshConfig;
+  }
+  
+  /**
+   * Get SSH host for identification
+   */
+  getSSHHost(): string | null {
+    return this.sshConfig?.host || null;
   }
 
   /**
@@ -426,15 +440,34 @@ let dockerClientInstance: DockerClient | null = null;
  * @param sshConfig - SSH configuration (optional, for remote Docker)
  */
 export function getDockerClient(sshConfig?: SSHConfig | null): DockerClient {
+  // ❗ КРИТИЧНО: Каждый раз создаем новый клиент для правильной работы с SSH
+  // Singleton не работает правильно когда переключаемся между local и remote
   // Если конфигурация изменилась, пересоздаем клиент
-  if (!dockerClientInstance || sshConfig !== undefined) {
+  const requestedIsRemote = !!sshConfig;
+  const requestedHost = sshConfig?.host || null;
+  
+  const shouldRecreate = !dockerClientInstance || 
+    (sshConfig !== undefined && (
+      dockerClientInstance.isRemote !== requestedIsRemote ||
+      dockerClientInstance.getSSHHost() !== requestedHost
+    ));
+  
+  if (shouldRecreate) {
     // Cleanup old instance if exists
     if (dockerClientInstance) {
+      const oldConfig = dockerClientInstance.isRemote 
+        ? `remote (${dockerClientInstance.getSSHHost()})` 
+        : 'local';
+      const newConfig = requestedIsRemote 
+        ? `remote (${requestedHost})` 
+        : 'local';
+      logger.debug(`Recreating Docker client: ${oldConfig} -> ${newConfig}`);
       dockerClientInstance.cleanup();
     }
     dockerClientInstance = new DockerClient(sshConfig);
+    logger.debug(`Docker client created: ${requestedIsRemote ? `remote (${requestedHost})` : 'local'}`);
   }
-  return dockerClientInstance;
+  return dockerClientInstance!; // Non-null: checked above
 }
 
 /**

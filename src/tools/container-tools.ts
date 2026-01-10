@@ -11,19 +11,14 @@ import { ContainerManager } from '../managers/container-manager.js';
 import { ComposeManager } from '../managers/compose-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
-import { getDockerClientForProfile } from '../utils/docker-client.js';
 import type { SSHConfig } from '../utils/ssh-config.js';
-import { loadProfilesFile, profileDataToSSHConfig } from '../utils/profiles-file.js';
+import { resolveSSHConfig } from '../utils/profile-resolver.js';
 
 export class ContainerTools {
-  private containerManager: ContainerManager;
-  private composeManager: ComposeManager;
-  private projectDiscovery: ProjectDiscovery;
-
-  constructor(sshConfig?: SSHConfig | null) {
-    this.containerManager = new ContainerManager(sshConfig);
-    this.composeManager = new ComposeManager(sshConfig);
-    this.projectDiscovery = new ProjectDiscovery();
+  // ❗ АРХИТЕКТУРА: Managers НЕ хранятся в конструкторе
+  // Они создаются при каждом вызове с правильным sshConfig из args.profile
+  constructor() {
+    // No shared state - managers created per request
   }
 
   /**
@@ -43,7 +38,7 @@ export class ContainerTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
           },
         },
@@ -64,7 +59,7 @@ export class ContainerTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
           },
           required: ['service'],
@@ -91,7 +86,7 @@ export class ContainerTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
           },
           required: ['service'],
@@ -113,7 +108,7 @@ export class ContainerTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             timeout: {
               type: 'number',
@@ -140,7 +135,7 @@ export class ContainerTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             lines: {
               type: 'number',
@@ -169,7 +164,7 @@ export class ContainerTools {
           properties: {
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             build: {
               type: 'boolean',
@@ -201,7 +196,7 @@ export class ContainerTools {
           properties: {
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             volumes: {
               type: 'boolean',
@@ -234,7 +229,7 @@ export class ContainerTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
           },
           required: ['type'],
@@ -252,7 +247,7 @@ export class ContainerTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             project: {
               type: 'string',
@@ -318,8 +313,7 @@ export class ContainerTools {
   }
 
   private async handleList(args: any) {
-    const profile = args?.profile;
-    const sshConfig = this.getSSHConfigForProfile(profile);
+    const sshConfig = resolveSSHConfig(args);
     const containerManager = new ContainerManager(sshConfig);
     
     // REST API approach:
@@ -386,9 +380,9 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project);
+    const project = await this.getProject(args?.project, sshConfig);
     await containerManager.startContainer(args.service, project.name, project.composeFile, project.projectDir);
 
     return {
@@ -406,9 +400,9 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project);
+    const project = await this.getProject(args?.project, sshConfig);
     await containerManager.stopContainer(
       args.service,
       project.name,
@@ -432,9 +426,9 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project);
+    const project = await this.getProject(args?.project, sshConfig);
     await containerManager.restartContainer(
       args.service,
       project.name,
@@ -458,9 +452,9 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project);
+    const project = await this.getProject(args?.project, sshConfig);
     const logs = await containerManager.getLogs(
       args.service,
       project.name,
@@ -513,7 +507,7 @@ export class ContainerTools {
   }
 
   private async handleComposeUp(args: any) {
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     const composeManager = new ComposeManager(sshConfig);
     await composeManager.composeUp({
       build: args?.build || false,
@@ -533,7 +527,7 @@ export class ContainerTools {
   }
 
   private async handleComposeDown(args: any) {
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     const composeManager = new ComposeManager(sshConfig);
     await composeManager.composeDown({
       volumes: args?.volumes || false,
@@ -556,7 +550,7 @@ export class ContainerTools {
       throw new Error('type parameter is required (images, volumes, or networks)');
     }
 
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     const containerManager = new ContainerManager(sshConfig);
 
     let resources;
@@ -589,9 +583,9 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project);
+    const project = await this.getProject(args?.project, sshConfig);
     const stats = await containerManager.getContainerStats(args.service, project.name, project.composeFile, project.projectDir);
 
     return {
@@ -606,59 +600,34 @@ export class ContainerTools {
 
   /**
    * Helper: get project config (auto-detect or explicit)
+   * Uses the same logic as handleComposeConfig - checks SSH config first
    */
-  private async getProject(explicitName?: string) {
-    // If explicit name provided, use it (for remote Docker)
+  private async getProject(explicitName?: string, sshConfig?: SSHConfig | null) {
+    // If SSH config provided (remote mode), don't use local discovery
+    if (sshConfig) {
+      // Remote mode: create minimal project config
+      let projectName: string;
+      if (explicitName) {
+        projectName = explicitName;
+      } else {
+        // Use working directory name as fallback
+        const cwd = process.cwd();
+        projectName = cwd.split('/').pop() || 'docker-mcp-server';
+      }
+      // Create minimal project config for remote
+      return { name: projectName, composeFile: '', projectDir: '', services: {} };
+    }
+    
+    // Local mode: use local discovery
+    const projectDiscovery = new ProjectDiscovery();
     if (explicitName) {
-      return this.projectDiscovery.findProject({
+      return projectDiscovery.findProject({
         explicitProjectName: explicitName,
       });
     }
     
-    // Otherwise, use auto-detect (local Docker)
-    return this.projectDiscovery.findProject();
+    // Auto-detect (local Docker)
+    return projectDiscovery.findProject();
   }
 
-  /**
-   * Helper: get SSH config for profile
-   * Returns null for local profile or undefined profile
-   */
-  private getSSHConfigForProfile(profile?: string): SSHConfig | null {
-    if (!profile) {
-      return null; // Local Docker
-    }
-
-    // Load profile configuration
-    const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
-    if (!profilesFile) {
-      logger.warn('DOCKER_MCP_PROFILES_FILE not set, using local Docker');
-      return null;
-    }
-
-    try {
-      const fileResult = loadProfilesFile(profilesFile);
-      
-      if (fileResult.errors.length > 0 || !fileResult.config) {
-        logger.warn(`Failed to load profiles file: ${fileResult.errors.join(', ')}`);
-        return null;
-      }
-      
-      const profileData = fileResult.config.profiles[profile];
-      if (!profileData) {
-        logger.warn(`Profile "${profile}" not found, using local Docker`);
-        return null;
-      }
-      
-      // Check if local mode
-      if (profileData.mode === 'local') {
-        return null;
-      }
-      
-      // Convert to SSHConfig
-      return profileDataToSSHConfig(profileData);
-    } catch (error: any) {
-      logger.warn(`Failed to load profile "${profile}": ${error.message}`);
-      return null;
-    }
-  }
 }

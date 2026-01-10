@@ -7,6 +7,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-01-10
+
+### Fixed
+
+#### 🔴 Critical Fixes - Remote Docker Support
+- **BUG-003: SSH Profiles Application** — Fixed incorrect SSH profile application for remote Docker operations
+  - Centralized profile resolution via `profile-resolver.ts`
+  - Removed duplicate `getSSHConfigForProfile` methods from all tools
+  - All tools now correctly use remote SSH connections when profile specified
+
+- **BUG-004: Remote Commands Execution** — Fixed remote commands executing on local Docker instead of remote server
+  - Fixed file-based profile loading from `DOCKER_PROFILES_FILE`
+  - Profiles now correctly loaded from `~/.cursor/docker-profiles.json`
+  - Priority: file → JSON string → fallback to local
+
+- **BUG-005: Profile Info Display** — Fixed `docker_profile_info` not showing all profiles from configuration
+  - Corrected profile loading from file system
+  - All configured profiles now visible in `availableProfiles`
+
+- **BUG-006: docker_env_list Remote Mode** — Fixed empty results when listing environment variables on remote Docker
+  - Added `remote-compose.ts` utility for reading remote compose files via SSH
+  - Environment variables now correctly parsed from remote `docker-compose.yml`
+  - Secret masking works correctly in remote mode
+
+- **BUG-007: Database Tools Remote Mode** — Fixed all database tools (`docker_db_*`) not working in remote mode
+  - Added `projectConfig` parameter to all database adapter methods
+  - Database adapters now receive project configuration from tools layer
+  - All database operations (query, status, backup, restore) work in remote mode
+  - Support for remote compose file reading in database operations
+
+#### 🟡 Medium Fixes
+- **BUG-008: pgvector Detection** — Fixed `ankane/pgvector:latest` not being detected as PostgreSQL
+  - Added support for PostgreSQL extensions: pgvector, timescale, postgis, mariadb
+  - Extended database type detection patterns in `compose-parser.ts` and `project-discovery.ts`
+
+- **BUG-009: db_status Parsing** — Fixed `docker_db_status` returning dashes instead of real values
+  - Fixed SQL result parsing in `PostgreSQLAdapter.status()`
+  - Real values now returned for `size`, `connections`, `uptime`
+
+### Added
+
+- **Remote Compose File Reading** — New utility `src/utils/remote-compose.ts`
+  - Reads `docker-compose.yml` files from remote servers via SSH
+  - Supports both local and remote project discovery
+  - Used by all tools that need compose configuration
+
+- **Database Adapter Project Config** — Extended database adapter interface
+  - Optional `projectConfig` parameter in all adapter methods
+  - Allows tools to pass pre-resolved project configuration
+  - Eliminates redundant project discovery calls in adapters
+
+- **Enhanced Database Type Detection** — Extended PostgreSQL pattern matching
+  - Support for `pgvector`, `timescale`, `postgis` images
+  - MariaDB detection as MySQL-compatible
+  - Better image pattern matching
+
+- **Code Cleanup for Release** — Removed debug logging from production code
+  - Removed all logger calls from `compose-parser.ts` (parse, parseFromString, detectServiceType)
+  - Removed debug comments from `index.ts`
+  - Cleaner production code without debug noise
+
+### Changed
+
+- **Profile Resolution Architecture** — Centralized profile management
+  - Single source of truth: `profile-resolver.ts`
+  - All tools use unified `resolveSSHConfig()` function
+  - Removed code duplication across 4+ tool files
+
+- **Database Tools Architecture** — Improved dependency injection
+  - Database adapters receive project config from tools layer
+  - Tools handle project discovery once, pass to adapters
+  - Better separation of concerns
+
+### Testing
+
+- **Comprehensive Remote Testing** — All 20 tools tested in remote mode
+  - 100% tool coverage in remote environment
+  - All critical bugs verified as fixed
+  - Dangerous operations (start/stop/restart/up/down/restore) tested safely
+
+- **Comprehensive Local Testing** — All 20 tools tested in local mode
+  - 100% tool coverage in local environment
+  - Parallel testing confirms both modes work identically
+
+### Documentation
+
+- **Updated MCP_BUGS.md** — Complete bug fix documentation
+  - All 9 bugs documented with fix details
+  - Testing results and verification included
+  - Ready for reference
+
+---
+
 ## [1.2.1] - 2026-01-09
 
 ### Added

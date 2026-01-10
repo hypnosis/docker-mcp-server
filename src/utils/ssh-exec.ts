@@ -5,6 +5,7 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { homedir } from 'os';
 import { logger } from './logger.js';
 import type { SSHConfig } from './ssh-config.js';
 
@@ -64,8 +65,10 @@ function buildSSHCommand(sshConfig: SSHConfig, remoteCommand: string): string {
 
   // Add private key if specified
   if (sshConfig.privateKeyPath) {
-    const keyPath = sshConfig.privateKeyPath.startsWith('~')
-      ? sshConfig.privateKeyPath.replace('~', process.env.HOME || process.env.USERPROFILE || '')
+    // Path should already be expanded by expandTilde() in profile-resolver.ts
+    // But handle ~ just in case (defensive programming)
+    const keyPath = sshConfig.privateKeyPath.startsWith('~/')
+      ? sshConfig.privateKeyPath.replace('~', homedir())
       : sshConfig.privateKeyPath;
     args.push('-i', keyPath);
   }

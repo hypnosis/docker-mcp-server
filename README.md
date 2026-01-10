@@ -276,8 +276,20 @@ Keywords that trigger masking: `PASSWORD`, `TOKEN`, `KEY`, `SECRET`, `API_KEY`
 - **[Testing System](docs/testing/README.md)** — Complete testing guide (E2E, Unit, Manual)
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** — Common issues and solutions
 - **[FAQ](docs/FAQ.md)** — Frequently asked questions
+- **[Roadmap](docs/ROADMAP.md)** — Future development plans and upcoming features
 
 For developer documentation, see [docs/DEV/README.md](docs/DEV/README.md)
+
+### Roadmap Overview
+
+The project roadmap outlines planned features and releases. Key upcoming features include:
+
+- **v1.4.0 (Q1 2026)**: MySQL and MongoDB adapters
+- **v1.5.0 (Q2 2026)**: Enhanced monitoring and analytics
+- **v2.0.0 (Q3 2026)**: Plugin system and major architecture update
+- **v2.1.0 (Q4 2026)**: Network, volume, and image management
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed information about future plans, priorities, and how to contribute to the roadmap.
 
 ## 🤝 Contributing
 

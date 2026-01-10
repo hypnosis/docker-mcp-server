@@ -7,15 +7,21 @@ import {
   CallToolRequest,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { adapterRegistry } from '../adapters/adapter-registry.js';
+import { PostgreSQLAdapter } from '../adapters/postgresql.js';
+import { RedisAdapter } from '../adapters/redis.js';
+import { SQLiteAdapter } from '../adapters/sqlite.js';
+import type { DatabaseAdapter } from '../adapters/database-adapter.js';
+import { ContainerManager } from '../managers/container-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
+import { EnvManager } from '../managers/env-manager.js';
 import { logger } from '../utils/logger.js';
+import type { SSHConfig } from '../utils/ssh-config.js';
+import { resolveSSHConfig } from '../utils/profile-resolver.js';
+import { readRemoteComposeFile } from '../utils/remote-compose.js';
 
 export class DatabaseTools {
-  private projectDiscovery: ProjectDiscovery;
-
   constructor() {
-    this.projectDiscovery = new ProjectDiscovery();
+    // No shared state - adapters created per request
   }
 
   /**
@@ -35,7 +41,7 @@ export class DatabaseTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             project: {
               type: 'string',
@@ -75,7 +81,7 @@ export class DatabaseTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             project: {
               type: 'string',
@@ -116,7 +122,7 @@ export class DatabaseTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             project: {
               type: 'string',
@@ -161,7 +167,7 @@ export class DatabaseTools {
             },
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             project: {
               type: 'string',
@@ -211,28 +217,129 @@ export class DatabaseTools {
     }
   }
 
+  /**
+   * Validate profile configuration
+   * Throws explicit error if profile specified but not found
+   */
+  private validateProfile(profile?: string, sshConfig?: SSHConfig | null): void {
+    // ❗ CRITICAL: If profile specified, SSH config MUST be present
+    if (profile && !sshConfig) {
+      throw new Error(
+        `❌ PROFILE ERROR: Profile "${profile}" was specified but could not be resolved.\n` +
+        `\n` +
+        `Possible causes:\n` +
+        `  1. Profile "${profile}" not found in DOCKER_PROFILES environment variable\n` +
+        `  2. DOCKER_PROFILES environment variable not set\n` +
+        `  3. DOCKER_PROFILES JSON is invalid or missing\n` +
+        `\n` +
+        `⚠️  NO FALLBACK TO LOCAL: This is intentional to prevent accidental local operations.\n` +
+        `    If you want to use local Docker, omit the "profile" parameter.`
+      );
+    }
+    
+    // Log successful profile resolution
+    if (profile && sshConfig) {
+      logger.info(`✅ Profile "${profile}" resolved successfully: ${sshConfig.host}:${sshConfig.port || 22}`);
+    } else if (!profile) {
+      logger.debug('Using local Docker (no profile specified)');
+    }
+  }
+
+  /**
+   * Create database adapter with dependency injection
+   * All dependencies are explicitly created and passed
+   */
+  private createAdapter(
+    serviceType: string,
+    sshConfig: SSHConfig | null
+  ): DatabaseAdapter {
+    // Create managers with explicit SSH config
+    const containerManager = new ContainerManager(sshConfig);
+    const projectDiscovery = new ProjectDiscovery();
+    const envManager = new EnvManager();
+    
+    // Create adapter with dependency injection
+    const normalizedType = serviceType.toLowerCase();
+    
+    switch (normalizedType) {
+      case 'postgresql':
+      case 'postgres':
+        logger.debug(`Creating PostgreSQLAdapter with ${sshConfig ? 'remote' : 'local'} Docker`);
+        return new PostgreSQLAdapter(containerManager, projectDiscovery, envManager);
+        
+      case 'redis':
+        logger.debug(`Creating RedisAdapter with ${sshConfig ? 'remote' : 'local'} Docker`);
+        return new RedisAdapter(containerManager, projectDiscovery, envManager);
+        
+      case 'sqlite':
+      case 'sqlite3':
+        logger.debug(`Creating SQLiteAdapter with ${sshConfig ? 'remote' : 'local'} Docker`);
+        return new SQLiteAdapter(containerManager, projectDiscovery, envManager);
+        
+      default:
+        throw new Error(
+          `❌ DATABASE ERROR: Unsupported database type: ${serviceType}\n` +
+          `\n` +
+          `Supported types:\n` +
+          `  - postgresql (postgres)\n` +
+          `  - redis\n` +
+          `  - sqlite (sqlite3)`
+        );
+    }
+  }
+
+  /**
+   * Get project helper (unified pattern with other tools)
+   * Reads remote/local compose file based on SSH config
+   */
+  private async getProject(projectName?: string, sshConfig?: SSHConfig | null) {
+    // If SSH config provided (remote mode), read remote compose file
+    if (sshConfig) {
+      let finalProjectName: string;
+      if (projectName) {
+        finalProjectName = projectName;
+      } else {
+        // Use working directory name as fallback
+        const cwd = process.cwd();
+        finalProjectName = cwd.split('/').pop() || 'docker-mcp-server';
+      }
+      
+      // ✅ FIX BUG-007: Read and parse remote docker-compose.yml
+      logger.info(`Reading remote compose file for project: ${finalProjectName}`);
+      return await readRemoteComposeFile(finalProjectName, sshConfig);
+    }
+    
+    // Local mode: use local discovery
+    const projectDiscovery = new ProjectDiscovery();
+    return await projectDiscovery.findProject(
+      projectName ? { explicitProjectName: projectName } : {}
+    );
+  }
+
   private async handleQuery(args: any) {
     if (!args.service || !args.query) {
       throw new Error('service and query parameters are required');
     }
 
-    const project = await this.projectDiscovery.findProject(
-      args.project ? { explicitProjectName: args.project } : {}
-    );
+    // Resolve profile once (unified pattern)
+    const sshConfig = resolveSSHConfig(args);
+    this.validateProfile(args?.profile, sshConfig);
+    
+    const project = await this.getProject(args?.project, sshConfig);
     const serviceConfig = project.services[args.service];
     
     if (!serviceConfig) {
       throw new Error(`Service '${args.service}' not found in project`);
     }
 
-    // Get adapter by database type
-    const adapter = adapterRegistry.get(serviceConfig.type);
+    const adapter = this.createAdapter(serviceConfig.type, sshConfig);
 
+    // ✅ FIX BUG-007: Pass project to adapter for remote mode
     const result = await adapter.query(args.service, args.query, {
       database: args.database,
       user: args.user,
       format: args.format,
-    });
+    }, project);
 
     return {
       content: [
@@ -249,23 +356,25 @@ export class DatabaseTools {
       throw new Error('service parameter is required');
     }
 
-    const project = await this.projectDiscovery.findProject(
-      args.project ? { explicitProjectName: args.project } : {}
-    );
+    const sshConfig = resolveSSHConfig(args);
+    this.validateProfile(args?.profile, sshConfig);
+    
+    const project = await this.getProject(args?.project, sshConfig);
     const serviceConfig = project.services[args.service];
     
     if (!serviceConfig) {
       throw new Error(`Service '${args.service}' not found in project`);
     }
 
-    const adapter = adapterRegistry.get(serviceConfig.type);
+    const adapter = this.createAdapter(serviceConfig.type, sshConfig);
 
+    // ✅ FIX BUG-007: Pass project to adapter for remote mode
     const backupPath = await adapter.backup(args.service, {
       output: args.output,
       format: args.format,
       compress: args.compress,
       tables: args.tables,
-    });
+    }, project);
 
     return {
       content: [
@@ -282,23 +391,25 @@ export class DatabaseTools {
       throw new Error('service and backupPath parameters are required');
     }
 
-    const project = await this.projectDiscovery.findProject(
-      args.project ? { explicitProjectName: args.project } : {}
-    );
+    const sshConfig = resolveSSHConfig(args);
+    this.validateProfile(args?.profile, sshConfig);
+    
+    const project = await this.getProject(args?.project, sshConfig);
     const serviceConfig = project.services[args.service];
     
     if (!serviceConfig) {
       throw new Error(`Service '${args.service}' not found in project`);
     }
 
-    const adapter = adapterRegistry.get(serviceConfig.type);
+    const adapter = this.createAdapter(serviceConfig.type, sshConfig);
 
+    // ✅ FIX BUG-007: Pass project to adapter for remote mode
     await adapter.restore(args.service, args.backupPath, {
       database: args.database,
       clean: args.clean,
       dataOnly: args.dataOnly,
       schemaOnly: args.schemaOnly,
-    });
+    }, project);
 
     return {
       content: [
@@ -315,18 +426,29 @@ export class DatabaseTools {
       throw new Error('service parameter is required');
     }
 
-    const project = await this.projectDiscovery.findProject(
-      args.project ? { explicitProjectName: args.project } : {}
-    );
+    const sshConfig = resolveSSHConfig(args);
+    this.validateProfile(args?.profile, sshConfig);
+    
+    const project = await this.getProject(args?.project, sshConfig);
     const serviceConfig = project.services[args.service];
     
     if (!serviceConfig) {
       throw new Error(`Service '${args.service}' not found in project`);
     }
 
-    const adapter = adapterRegistry.get(serviceConfig.type);
+    if (serviceConfig.type === 'generic') {
+      throw new Error(
+        `❌ Service type detection failed!\n` +
+        `Service "${args.service}" was detected as "generic" instead of a database type.\n` +
+        `Image: ${serviceConfig.image || 'unknown'}\n` +
+        `Please check the image name in docker-compose.yml.`
+      );
+    }
 
-    const status = await adapter.status(args.service);
+    const adapter = this.createAdapter(serviceConfig.type, sshConfig);
+
+    // ✅ FIX BUG-007: Pass project to adapter for remote mode
+    const status = await adapter.status(args.service, project);
 
     return {
       content: [

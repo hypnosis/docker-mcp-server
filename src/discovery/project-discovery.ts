@@ -326,9 +326,13 @@ export class ProjectDiscovery {
   private detectServiceType(config: any): 'generic' | 'postgresql' | 'redis' | 'sqlite' | 'mysql' | 'mongodb' {
     const image = (config.image || '').toLowerCase();
 
-    if (image.includes('postgres')) return 'postgresql';
+    // PostgreSQL variants: postgres, postgresql, pgvector, timescaledb, postgis
+    if (image.includes('postgres') || image.includes('pgvector') || image.includes('timescale') || image.includes('postgis')) {
+      return 'postgresql';
+    }
+    
     if (image.includes('redis')) return 'redis';
-    if (image.includes('mysql')) return 'mysql';
+    if (image.includes('mysql') || image.includes('mariadb')) return 'mysql';
     if (image.includes('mongo')) return 'mongodb';
     if (image.includes('sqlite')) return 'sqlite';
 

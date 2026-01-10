@@ -16,18 +16,17 @@ import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 import { logger } from '../utils/logger.js';
 import type { SSHConfig } from '../utils/ssh-config.js';
 import { readRemoteFile } from '../utils/ssh-exec.js';
-import { loadProfilesFile, profileDataToSSHConfig } from '../utils/profiles-file.js';
+import { resolveSSHConfig } from '../utils/profile-resolver.js';
+import { readRemoteComposeFile, readRemoteComposeContent } from '../utils/remote-compose.js';
 
 export class EnvTools {
+  // ❗ АРХИТЕКТУРА: Managers НЕ хранятся в конструкторе
+  // Они создаются при каждом вызове с правильным sshConfig из args.profile
   private envManager: EnvManager;
-  private projectDiscovery: ProjectDiscovery;
-  private containerManager: ContainerManager;
   private composeParser: ComposeParser;
 
   constructor() {
     this.envManager = new EnvManager();
-    this.projectDiscovery = new ProjectDiscovery();
-    this.containerManager = new ContainerManager();
     this.composeParser = new ComposeParser();
   }
 
@@ -44,7 +43,7 @@ export class EnvTools {
           properties: {
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             project: {
               type: 'string',
@@ -70,7 +69,7 @@ export class EnvTools {
           properties: {
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             project: {
               type: 'string',
@@ -99,7 +98,7 @@ export class EnvTools {
           properties: {
             profile: {
               type: 'string',
-              description: 'Profile name from profiles.json (default: local Docker)',
+              description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
             },
             project: {
               type: 'string',
@@ -154,64 +153,38 @@ export class EnvTools {
 
   /**
    * Get project (helper)
+   * Reads and parses remote docker-compose.yml if SSH config provided
    */
-  private async getProject(projectName?: string) {
-    return await this.projectDiscovery.findProject(
+  private async getProject(projectName?: string, sshConfig?: SSHConfig | null) {
+    // If SSH config provided (remote mode), read remote compose file
+    if (sshConfig) {
+      let finalProjectName: string;
+      if (projectName) {
+        finalProjectName = projectName;
+      } else {
+        // Use working directory name as fallback
+        const cwd = process.cwd();
+        finalProjectName = cwd.split('/').pop() || 'docker-mcp-server';
+      }
+      
+      // ✅ FIX BUG-006: Read and parse remote docker-compose.yml
+      logger.info(`Reading remote compose file for project: ${finalProjectName}`);
+      return await readRemoteComposeFile(finalProjectName, sshConfig);
+    }
+    
+    // Local mode: use local discovery
+    const projectDiscovery = new ProjectDiscovery();
+    return await projectDiscovery.findProject(
       projectName ? { explicitProjectName: projectName } : {}
     );
-  }
-
-  /**
-   * Helper: get SSH config for profile
-   * Returns null for local profile or undefined profile
-   */
-  private getSSHConfigForProfile(profile?: string): SSHConfig | null {
-    if (!profile) {
-      return null; // Local Docker
-    }
-
-    // Load profile configuration
-    const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
-    
-    if (!profilesFile) {
-      logger.warn('DOCKER_MCP_PROFILES_FILE not set, using local Docker');
-      return null;
-    }
-
-    try {
-      const fileResult = loadProfilesFile(profilesFile);
-      
-      if (fileResult.errors.length > 0 || !fileResult.config) {
-        logger.warn(`Failed to load profiles file: ${fileResult.errors.join(', ')}`);
-        return null;
-      }
-      
-      const profileData = fileResult.config.profiles[profile];
-      
-      if (!profileData) {
-        logger.warn(`Profile "${profile}" not found, using local Docker`);
-        return null;
-      }
-      
-      // Check if local mode
-      if (profileData.mode === 'local') {
-        return null;
-      }
-      
-      // Convert to SSHConfig
-      const sshConfig = profileDataToSSHConfig(profileData);
-      return sshConfig;
-    } catch (error: any) {
-      logger.warn(`Failed to load profile "${profile}": ${error.message}`);
-      return null;
-    }
   }
 
   /**
    * docker_env_list handler
    */
   private async handleEnvList(args: any) {
-    const project = await this.getProject(args?.project);
+    const sshConfig = resolveSSHConfig(args);
+    const project = await this.getProject(args?.project, sshConfig);
     
     // If service is specified, load env for specific service
     let env: Record<string, string>;
@@ -234,7 +207,7 @@ export class EnvTools {
       
       // Then, load env from each service in the project
       for (const [serviceName, serviceConfig] of Object.entries(project.services)) {
-        const serviceEnv = this.envManager.loadEnv(project.projectDir, serviceName, serviceConfig);
+        const serviceEnv = this.envManager.loadEnv(project.projectDir, serviceName, serviceConfig as any);
         // Prefix with service name to avoid conflicts
         for (const [key, value] of Object.entries(serviceEnv)) {
           // Only add if not already in global env (global has priority)
@@ -288,7 +261,7 @@ export class EnvTools {
    */
   private async handleComposeConfig(args: any) {
     const shouldResolve = args?.resolve === true;
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    const sshConfig = resolveSSHConfig(args);
     
     
     // Determine project name
@@ -308,7 +281,7 @@ export class EnvTools {
       project = { name: projectName, composeFile: '', projectDir: '', services: {} };
     } else {
       // Local mode: use local discovery
-      project = await this.getProject(args?.project);
+      project = await this.getProject(args?.project, sshConfig);
       projectName = project.name;
     }
     
@@ -317,34 +290,10 @@ export class EnvTools {
     
     // PRIORITY: If profile is specified, read REMOTE file FIRST
     if (sshConfig) {
-      // Remote mode: read file via SSH
-      const projectsPath = (sshConfig as any).projectsPath || '/var/www';
-      const possiblePaths = [
-        `${projectsPath}/${projectName}/docker-compose.yml`,
-        `${projectsPath}/${projectName}/compose.yml`,
-      ];
-      
-      for (const remoteComposePath of possiblePaths) {
-        try {
-          logger.debug(`Trying to read remote compose file: ${remoteComposePath}`);
-          composeContent = await readRemoteFile(remoteComposePath, {
-            sshConfig,
-            timeout: 30000,
-          });
-          composeFile = remoteComposePath;
-          logger.debug(`Successfully read remote compose file from: ${remoteComposePath}`);
-          break;
-        } catch (error: any) {
-          logger.warn(`Failed to read from ${remoteComposePath}: ${error.message}`);
-        }
-      }
-      
-      if (!composeContent) {
-        throw new Error(
-          `Remote compose file not found for project '${projectName}' in ${projectsPath}. ` +
-          `Tried: docker-compose.yml, compose.yml`
-        );
-      }
+      // ✅ FIX: Use unified remote compose reader (no duplication)
+      const remoteResult = await readRemoteComposeContent(projectName, sshConfig);
+      composeContent = remoteResult.content;
+      composeFile = remoteResult.filePath;
     } else {
       // Local mode: use local file
       if (!composeFile) {
@@ -430,10 +379,9 @@ export class EnvTools {
    * docker_healthcheck handler
    */
   private async handleHealthcheck(args: any) {
-    const project = await this.getProject(args?.project);
-    
-    // Get SSH config for profile
-    const sshConfig = this.getSSHConfigForProfile(args?.profile);
+    // Get SSH config for profile first
+    const sshConfig = resolveSSHConfig(args);
+    const project = await this.getProject(args?.project, sshConfig);
     const containerManager = new ContainerManager(sshConfig);
     
     // Получить список всех контейнеров

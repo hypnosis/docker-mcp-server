@@ -5,7 +5,6 @@
 import { readFileSync } from 'fs';
 import { dirname, basename } from 'path';
 import { parse as parseYaml } from 'yaml';
-import { logger } from '../utils/logger.js';
 import type { ProjectConfig, ServiceConfig } from './types.js';
 
 export class ComposeParser {
@@ -13,8 +12,6 @@ export class ComposeParser {
    * Парсит docker-compose.yml
    */
   parse(composeFile: string): ProjectConfig {
-    logger.debug(`Parsing compose file: ${composeFile}`);
-
     try {
       const parsed = this.parseRaw(composeFile);
 
@@ -32,7 +29,6 @@ export class ComposeParser {
         services: this.parseServices(parsed.services),
       };
     } catch (error: any) {
-      logger.error('Failed to parse compose file:', error);
       throw new Error(`Failed to parse ${composeFile}: ${error.message}`);
     }
   }
@@ -49,8 +45,6 @@ export class ComposeParser {
    * Парсит docker-compose.yml из строки (для remote files)
    */
   parseFromString(composeContent: string, composeFilePath: string): ProjectConfig {
-    logger.debug(`Parsing compose content from: ${composeFilePath}`);
-
     try {
       const parsed = parseYaml(composeContent);
 
@@ -68,7 +62,6 @@ export class ComposeParser {
         services: this.parseServices(parsed.services),
       };
     } catch (error: any) {
-      logger.error('Failed to parse compose content:', error);
       throw new Error(`Failed to parse ${composeFilePath}: ${error.message}`);
     }
   }
@@ -156,9 +149,13 @@ export class ComposeParser {
   private detectServiceType(config: any): ServiceConfig['type'] {
     const image = (config.image || '').toLowerCase();
 
-    if (image.includes('postgres')) return 'postgresql';
+    // PostgreSQL variants: postgres, postgresql, pgvector, timescaledb, postgis
+    if (image.includes('postgres') || image.includes('pgvector') || image.includes('timescale') || image.includes('postgis')) {
+      return 'postgresql';
+    }
+    
     if (image.includes('redis')) return 'redis';
-    if (image.includes('mysql')) return 'mysql';
+    if (image.includes('mysql') || image.includes('mariadb')) return 'mysql';
     if (image.includes('mongo')) return 'mongodb';
     if (image.includes('sqlite')) return 'sqlite';
 

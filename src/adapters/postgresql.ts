@@ -11,7 +11,7 @@ import type {
   DBStatus,
   ConnectionInfo,
 } from './types.js';
-import type { ServiceConfig } from '../discovery/types.js';
+import type { ServiceConfig, ProjectConfig } from '../discovery/types.js';
 import { ContainerManager } from '../managers/container-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { EnvManager } from '../managers/env-manager.js';
@@ -23,20 +23,31 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   private projectDiscovery: ProjectDiscovery;
   private envManager: EnvManager;
 
-  constructor() {
-    this.containerManager = new ContainerManager();
-    this.projectDiscovery = new ProjectDiscovery();
-    this.envManager = new EnvManager();
+  /**
+   * Constructor with Dependency Injection
+   * @param containerManager - ContainerManager instance (with or without SSH config)
+   * @param projectDiscovery - ProjectDiscovery instance
+   * @param envManager - EnvManager instance
+   */
+  constructor(
+    containerManager: ContainerManager,
+    projectDiscovery: ProjectDiscovery,
+    envManager: EnvManager
+  ) {
+    this.containerManager = containerManager;
+    this.projectDiscovery = projectDiscovery;
+    this.envManager = envManager;
   }
 
   /**
    * Execute SQL query
    */
-  async query(service: string, query: string, options?: QueryOptions): Promise<string> {
+  async query(service: string, query: string, options?: QueryOptions, projectConfig?: ProjectConfig): Promise<string> {
     // SQL validation (if enabled)
     sqlValidator.validate(query);
 
-    const project = await this.projectDiscovery.findProject();
+    // ✅ FIX BUG-007: Use provided project or find local project
+    const project = projectConfig || await this.projectDiscovery.findProject();
     const serviceConfig = project.services[service];
     if (!serviceConfig) {
       throw new Error(`Service '${service}' not found in project`);
@@ -67,9 +78,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
 
     logger.debug(`Executing PostgreSQL query in ${service}: ${query}`);
 
+    // ✅ FIX BUG-007: Pass composeFile and projectDir for remote mode
     const output = await this.containerManager.exec(service, project.name, cmd, {
       env: envVars,
-    });
+    }, project.composeFile, project.projectDir);
 
     return output;
   }
@@ -77,7 +89,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   /**
    * Create backup
    */
-  async backup(service: string, options: BackupOptions): Promise<string> {
+  async backup(service: string, options: BackupOptions, projectConfig?: ProjectConfig): Promise<string> {
     const project = await this.projectDiscovery.findProject();
     const serviceConfig = project.services[service];
     if (!serviceConfig) {
@@ -181,8 +193,9 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   /**
    * Get database status
    */
-  async status(service: string): Promise<DBStatus> {
-    const project = await this.projectDiscovery.findProject();
+  async status(service: string, projectConfig?: ProjectConfig): Promise<DBStatus> {
+    // ✅ FIX BUG-007: Use provided project or find local project
+    const project = projectConfig || await this.projectDiscovery.findProject();
     const serviceConfig = project.services[service];
     if (!serviceConfig) {
       throw new Error(`Service '${service}' not found in project`);
@@ -191,28 +204,34 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     const env = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
     const conn = this.getConnectionInfo(serviceConfig, env);
 
-    // Get version
-    const versionOutput = await this.query(service, 'SELECT version();');
+    // Get version - pass projectConfig to query
+    const versionOutput = await this.query(service, 'SELECT version();', undefined, projectConfig);
     const version = this.parseVersion(versionOutput);
 
     // Get database size
     const sizeOutput = await this.query(
       service,
-      "SELECT pg_size_pretty(pg_database_size(current_database())) as size;"
+      "SELECT pg_size_pretty(pg_database_size(current_database())) as size;",
+      undefined,
+      projectConfig
     );
     const size = this.parseSingleValue(sizeOutput);
 
     // Get connection count
     const connectionsOutput = await this.query(
       service,
-      "SELECT count(*) as connections FROM pg_stat_activity WHERE datname = current_database();"
+      "SELECT count(*) as connections FROM pg_stat_activity WHERE datname = current_database();",
+      undefined,
+      projectConfig
     );
     const connections = parseInt(this.parseSingleValue(connectionsOutput) || '0');
 
     // Get uptime
     const uptimeOutput = await this.query(
       service,
-      "SELECT date_trunc('second', current_timestamp - pg_postmaster_start_time()) as uptime;"
+      "SELECT date_trunc('second', current_timestamp - pg_postmaster_start_time()) as uptime;",
+      undefined,
+      projectConfig
     );
     const uptime = this.parseSingleValue(uptimeOutput);
 
@@ -251,15 +270,27 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
    * Parse single value from SQL output (first row, first column)
    */
   private parseSingleValue(output: string): string {
-    // Simple parsing: take first line after header
+    logger.debug(`Parsing single value from ${output.length} chars output`);
+    
     const lines = output.split('\n').filter((line) => line.trim().length > 0);
+    
     if (lines.length < 2) {
+      logger.warn('Not enough lines in SQL output');
       return '';
     }
-    // Skip header, take first data row
-    const dataLine = lines[1];
-    // Remove extra spaces
-    return dataLine.trim();
+    
+    // psql table format:
+    // Line 0: column header (e.g., " size ")
+    // Line 1: separator (e.g., "-------")
+    // Line 2: actual data (e.g., " 11 MB")
+    // Line 3: row count (e.g., "(1 row)")
+    
+    // Skip header and separator, take data row
+    const dataLine = lines.length >= 3 ? lines[2] : lines[1];
+    const value = dataLine.trim();
+    
+    logger.debug(`Parsed value: "${value}"`);
+    return value;
   }
 }
 

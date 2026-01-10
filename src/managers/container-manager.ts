@@ -5,7 +5,7 @@
 
 import type Docker from 'dockerode';
 import { logger } from '../utils/logger.js';
-import { getDockerClient } from '../utils/docker-client.js';
+import { getDockerClient, DockerClient } from '../utils/docker-client.js';
 import { retryWithTimeout, createNetworkRetryPredicate } from '../utils/retry.js';
 import type { SSHConfig } from '../utils/ssh-config.js';
 
@@ -67,19 +67,23 @@ export interface ContainerStats {
 
 export class ContainerManager {
   private docker: Docker;
+  private dockerClient: DockerClient; // Keep reference to client for SSH tunnel management
   private isRemote: boolean;
 
   constructor(sshConfig?: SSHConfig | null) {
     this.isRemote = !!sshConfig;
-    const client = getDockerClient(sshConfig);
-    this.docker = client.getClient();
+    this.dockerClient = getDockerClient(sshConfig);
+    this.docker = this.dockerClient.getClient();
   }
 
   /**
    * Execute Docker API call with retry for remote connections
+   * ❗ КРИТИЧНО: Для remote подключений сначала создаем SSH туннель
    */
   private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
     if (this.isRemote) {
+      // Для remote подключений сначала создаем SSH туннель
+      await this.dockerClient.ping(); // ping() автоматически создает туннель через ensureSSHTunnel()
       return retryWithTimeout(fn, {
         maxAttempts: 3,
         timeout: 30000,
@@ -95,10 +99,9 @@ export class ContainerManager {
    */
   async listContainers(projectName: string, composeFile?: string, projectDir?: string): Promise<ContainerInfo[]> {
     // Get ALL containers with ANY compose labels
+    // ❗ КРИТИЧНО: Используем dockerClient.listContainers() для автоматического создания SSH туннеля
     try {
-      const allContainers = await this.withRetry(() => 
-        this.docker.listContainers({ all: true })
-      );
+      const allContainers = await this.dockerClient.listContainers({ all: true });
 
       // Filter containers that have Docker Compose labels
       const containersWithLabels = allContainers.filter(container => {
@@ -309,6 +312,8 @@ export class ContainerManager {
   private async findContainer(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<Docker.Container> {
     const containers = await this.listContainers(projectName, composeFile, projectDir);
     
+    logger.debug(`Finding container: service="${serviceName}" in project="${projectName}" (${containers.length} containers found)`);
+    
     const found = containers.find((c) => c.service === serviceName);
     
     if (!found) {
@@ -319,6 +324,7 @@ export class ContainerManager {
       );
     }
 
+    logger.debug(`Found container: ${found.id.substring(0,12)} for service="${serviceName}"`);
     return this.docker.getContainer(found.id);
   }
 

@@ -12,13 +12,10 @@ import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { adapterRegistry } from '../adapters/adapter-registry.js';
 import { projectConfigCache } from '../utils/cache.js';
 import { logger } from '../utils/logger.js';
-import type { SSHConfig } from '../utils/ssh-config.js';
 
 export class MCPHealthTool {
-  private sshConfig: SSHConfig | null;
-
-  constructor(sshConfig?: SSHConfig | null) {
-    this.sshConfig = sshConfig || null;
+  constructor() {
+    // SSH config is resolved dynamically per-tool call via resolveSSHConfig()
   }
 
   /**
@@ -111,36 +108,43 @@ export class MCPHealthTool {
   }> {
     const checks: any = {};
 
-    // 1. Docker Connection
+    // 1. Docker Connection (local only at startup)
     try {
       const start = Date.now();
-      const docker = getDockerClient();
+      const docker = getDockerClient(null); // Local Docker only
       await docker.ping();
       const latency = Date.now() - start;
       
       checks.docker = {
         status: 'ok' as const,
         latency,
-        mode: this.sshConfig ? 'remote' : 'local',
+        mode: 'local' as const,
       };
     } catch (error: any) {
       checks.docker = {
         status: 'failed' as const,
-        message: error.message || 'Docker connection failed',
-        mode: this.sshConfig ? 'remote' : 'local',
+        message: error.message || 'Local Docker connection failed',
+        mode: 'local' as const,
       };
     }
 
-    // 2. SSH Status (if configured)
-    if (this.sshConfig) {
-      checks.ssh = {
-        status: 'ok' as const,
-        host: this.sshConfig.host,
-        port: this.sshConfig.port || 22,
-        username: this.sshConfig.username,
-        tunnelActive: checks.docker.status === 'ok',
-      };
-    } else {
+    // 2. SSH Status (profiles loaded from DOCKER_PROFILES ENV)
+    try {
+      const { getAvailableProfiles, getDefaultProfile } = await import('../utils/profile-resolver.js');
+      const profiles = getAvailableProfiles();
+      const defaultProfile = getDefaultProfile();
+      
+      if (profiles.length > 0 && defaultProfile !== 'local') {
+        checks.ssh = {
+          status: 'configured' as any, // Profiles available but connection tested per-tool
+          message: `${profiles.length} profile(s) configured, default: ${defaultProfile}`,
+        };
+      } else {
+        checks.ssh = {
+          status: 'not_configured' as const,
+        };
+      }
+    } catch (error: any) {
       checks.ssh = {
         status: 'not_configured' as const,
       };

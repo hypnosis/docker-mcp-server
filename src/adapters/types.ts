@@ -2,7 +2,7 @@
  * Types for Database Adapters
  */
 
-import type { ServiceConfig } from '../discovery/types.js';
+import type { ServiceConfig, ProjectConfig } from '../discovery/types.js';
 
 /**
  * Options for query
@@ -11,6 +11,8 @@ export interface QueryOptions {
   database?: string;
   user?: string;
   format?: 'table' | 'json' | 'csv';
+  /** Optional: Pre-loaded project config (for remote mode) */
+  projectConfig?: ProjectConfig;
 }
 
 /**
@@ -21,6 +23,8 @@ export interface BackupOptions {
   format?: 'sql' | 'custom' | 'tar' | 'directory';
   compress?: boolean;
   tables?: string[];
+  /** Optional: Pre-loaded project config (for remote mode) */
+  projectConfig?: ProjectConfig;
 }
 
 /**
@@ -31,6 +35,8 @@ export interface RestoreOptions {
   clean?: boolean;
   dataOnly?: boolean;
   schemaOnly?: boolean;
+  /** Optional: Pre-loaded project config (for remote mode) */
+  projectConfig?: ProjectConfig;
 }
 
 /**

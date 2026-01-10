@@ -22,10 +22,20 @@ export class RedisAdapter implements DatabaseAdapter {
   private projectDiscovery: ProjectDiscovery;
   private envManager: EnvManager;
 
-  constructor() {
-    this.containerManager = new ContainerManager();
-    this.projectDiscovery = new ProjectDiscovery();
-    this.envManager = new EnvManager();
+  /**
+   * Constructor with Dependency Injection
+   * @param containerManager - ContainerManager instance (with or without SSH config)
+   * @param projectDiscovery - ProjectDiscovery instance
+   * @param envManager - EnvManager instance
+   */
+  constructor(
+    containerManager: ContainerManager,
+    projectDiscovery: ProjectDiscovery,
+    envManager: EnvManager
+  ) {
+    this.containerManager = containerManager;
+    this.projectDiscovery = projectDiscovery;
+    this.envManager = envManager;
   }
 
   /**

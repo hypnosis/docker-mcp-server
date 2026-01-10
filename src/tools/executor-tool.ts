@@ -8,14 +8,13 @@ import { ContainerManager } from '../managers/container-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
 import type { SSHConfig } from '../utils/ssh-config.js';
+import { resolveSSHConfig } from '../utils/profile-resolver.js';
 
 export class ExecutorTool {
-  private containerManager: ContainerManager;
-  private projectDiscovery: ProjectDiscovery;
-
+  // ❗ АРХИТЕКТУРА: Managers НЕ хранятся в конструкторе
+  // Они создаются при каждом вызове с правильным sshConfig из args.profile
   constructor() {
-    this.containerManager = new ContainerManager();
-    this.projectDiscovery = new ProjectDiscovery();
+    // No shared state - managers created per request
   }
 
   getTool(): Tool {
@@ -31,7 +30,7 @@ export class ExecutorTool {
           },
           profile: {
             type: 'string',
-            description: 'Profile name from profiles.json (default: local Docker)',
+            description: 'Profile name from DOCKER_PROFILES environment variable (default: uses default profile)',
           },
           command: {
             type: 'string',
@@ -77,10 +76,11 @@ export class ExecutorTool {
       }
 
       // Get SSH config for profile
-      const sshConfig = this.getSSHConfigForProfile(args.profile);
+      const sshConfig = resolveSSHConfig(args);
       const containerManager = new ContainerManager(sshConfig);
+      const projectDiscovery = new ProjectDiscovery();
 
-      const project = await this.projectDiscovery.findProject(
+      const project = await projectDiscovery.findProject(
         args.project ? { explicitProjectName: args.project } : {}
       );
       
@@ -141,47 +141,4 @@ export class ExecutorTool {
     return command.split(' ').filter((s) => s.length > 0);
   }
 
-  /**
-   * Helper: get SSH config for profile
-   * Returns null for local profile or undefined profile
-   */
-  private getSSHConfigForProfile(profile?: string): SSHConfig | null {
-    if (!profile) {
-      return null; // Local Docker
-    }
-
-    // Load profile configuration
-    const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
-    if (!profilesFile) {
-      logger.warn('DOCKER_MCP_PROFILES_FILE not set, using local Docker');
-      return null;
-    }
-
-    try {
-      const { loadProfilesFile, profileDataToSSHConfig } = require('../utils/profiles-file.js');
-      const fileResult = loadProfilesFile(profilesFile);
-      
-      if (fileResult.errors.length > 0 || !fileResult.config) {
-        logger.warn(`Failed to load profiles file: ${fileResult.errors.join(', ')}`);
-        return null;
-      }
-      
-      const profileData = fileResult.config.profiles[profile];
-      if (!profileData) {
-        logger.warn(`Profile "${profile}" not found, using local Docker`);
-        return null;
-      }
-      
-      // Check if local mode
-      if (profileData.mode === 'local') {
-        return null;
-      }
-      
-      // Convert to SSHConfig
-      return profileDataToSSHConfig(profileData);
-    } catch (error: any) {
-      logger.warn(`Failed to load profile "${profile}": ${error.message}`);
-      return null;
-    }
-  }
 }

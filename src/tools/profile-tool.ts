@@ -8,16 +8,11 @@ import {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from '../utils/logger.js';
-import { loadProfilesFile } from '../utils/profiles-file.js';
-import type { SSHConfig } from '../utils/ssh-config.js';
+import { getAvailableProfiles, getDefaultProfile } from '../utils/profile-resolver.js';
 
 export class ProfileTool {
-  private sshConfig: SSHConfig | null;
-  private profilesFile: string | undefined;
-
-  constructor(sshConfig?: SSHConfig | null, profilesFile?: string) {
-    this.sshConfig = sshConfig || null;
-    this.profilesFile = profilesFile;
+  constructor() {
+    // SSH config is resolved per-tool call via resolveSSHConfig()
   }
 
   /**
@@ -68,47 +63,23 @@ export class ProfileTool {
    */
   async getProfileInfo(): Promise<{
     mode: 'local' | 'remote';
-    current?: {
-      host: string;
-      port: number;
-      username: string;
-    };
-    profilesFile?: string;
-    availableProfiles?: string[];
-    defaultProfile?: string;
+    availableProfiles: string[];
+    defaultProfile: string;
+    source: string;
+    DOCKER_PROFILES_configured: boolean;
   }> {
-    // Local mode
-    if (!this.sshConfig) {
-      return {
-        mode: 'local',
-      };
-    }
+    // Load profiles from DOCKER_PROFILES ENV
+    const profiles = getAvailableProfiles();
+    const defaultProfile = getDefaultProfile();
+    const hasProfiles = profiles.length > 0 && (process.env.DOCKER_PROFILES || process.env.DOCKER_PROFILES_FILE);
 
-    // Remote mode
-    const result: any = {
-      mode: 'remote',
-      current: {
-        host: this.sshConfig.host,
-        port: this.sshConfig.port || 22,
-        username: this.sshConfig.username,
-      },
+    const result = {
+      mode: (hasProfiles && defaultProfile !== 'local' ? 'remote' : 'local') as 'local' | 'remote',
+      availableProfiles: profiles,
+      defaultProfile: defaultProfile,
+      source: process.env.DOCKER_PROFILES_FILE ? 'DOCKER_PROFILES_FILE' : 'DOCKER_PROFILES_ENV',
+      DOCKER_PROFILES_configured: !!(process.env.DOCKER_PROFILES || process.env.DOCKER_PROFILES_FILE),
     };
-
-    // Load profiles file if available
-    if (this.profilesFile) {
-      result.profilesFile = this.profilesFile;
-      
-      try {
-        const profilesResult = loadProfilesFile(this.profilesFile);
-        
-        if (profilesResult.config) {
-          result.availableProfiles = Object.keys(profilesResult.config.profiles);
-          result.defaultProfile = profilesResult.config.default;
-        }
-      } catch (error: any) {
-        logger.warn(`Failed to load profiles file: ${error.message}`);
-      }
-    }
 
     return result;
   }
