@@ -218,6 +218,43 @@ export class DatabaseTools {
   }
 
   /**
+   * Resolve SSH config and handle profile errors with detailed messages
+   * This wrapper catches profile errors and formats them according to test expectations
+   */
+  private resolveProfile(args: { profile?: string }): SSHConfig | null {
+    try {
+      return resolveSSHConfig(args);
+    } catch (error: any) {
+      // Check if this is a profile not found error
+      if (error.message && error.message.includes('not found in DOCKER_PROFILES')) {
+        const profileName = args.profile || 'unknown';
+        // Extract available profiles from error message
+        const availableMatch = error.message.match(/Available profiles: (.+)$/);
+        const availableProfiles = availableMatch ? availableMatch[1] : 'none';
+        
+        throw new Error(
+          `❌ PROFILE ERROR: Profile "${profileName}" was specified but could not be resolved.\n` +
+          `\n` +
+          `Possible causes:\n` +
+          `  1. Profile "${profileName}" not found in DOCKER_PROFILES environment variable\n` +
+          `  2. Profile "${profileName}" not found in profiles.json (check DOCKER_PROFILES_FILE environment variable)\n` +
+          `  3. DOCKER_PROFILES environment variable not set\n` +
+          `  4. DOCKER_PROFILES JSON is invalid or missing\n` +
+          `\n` +
+          `⚠️  NO FALLBACK TO LOCAL: This is intentional to prevent accidental local operations.\n` +
+          `    If you want to use local Docker, omit the "profile" parameter.\n` +
+          `\n` +
+          `Check:\n` +
+          `  - DOCKER_PROFILES environment variable or DOCKER_PROFILES_FILE path\n` +
+          `  - Available profiles: ${availableProfiles}`
+        );
+      }
+      // Re-throw other errors as-is
+      throw error;
+    }
+  }
+
+  /**
    * Validate profile configuration
    * Throws explicit error if profile specified but not found
    */
@@ -229,11 +266,15 @@ export class DatabaseTools {
         `\n` +
         `Possible causes:\n` +
         `  1. Profile "${profile}" not found in DOCKER_PROFILES environment variable\n` +
-        `  2. DOCKER_PROFILES environment variable not set\n` +
-        `  3. DOCKER_PROFILES JSON is invalid or missing\n` +
+        `  2. Profile "${profile}" not found in profiles.json (check DOCKER_PROFILES_FILE)\n` +
+        `  3. DOCKER_PROFILES environment variable not set\n` +
+        `  4. DOCKER_PROFILES JSON is invalid or missing\n` +
         `\n` +
         `⚠️  NO FALLBACK TO LOCAL: This is intentional to prevent accidental local operations.\n` +
-        `    If you want to use local Docker, omit the "profile" parameter.`
+        `    If you want to use local Docker, omit the "profile" parameter.\n` +
+        `\n` +
+        `Check:\n` +
+        `  - DOCKER_PROFILES environment variable or DOCKER_PROFILES_FILE path`
       );
     }
     
@@ -321,8 +362,8 @@ export class DatabaseTools {
       throw new Error('service and query parameters are required');
     }
 
-    // Resolve profile once (unified pattern)
-    const sshConfig = resolveSSHConfig(args);
+    // Resolve profile once (unified pattern) - with detailed error handling
+    const sshConfig = this.resolveProfile(args);
     this.validateProfile(args?.profile, sshConfig);
     
     const project = await this.getProject(args?.project, sshConfig);
@@ -356,7 +397,7 @@ export class DatabaseTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = resolveSSHConfig(args);
+    const sshConfig = this.resolveProfile(args);
     this.validateProfile(args?.profile, sshConfig);
     
     const project = await this.getProject(args?.project, sshConfig);
@@ -380,7 +421,7 @@ export class DatabaseTools {
       content: [
         {
           type: 'text',
-          text: `✅ Backup created successfully\nLocation: ${backupPath}`,
+          text: `✅ Backup created\nLocation: ${backupPath}`,
         },
       ],
     };
@@ -391,7 +432,7 @@ export class DatabaseTools {
       throw new Error('service and backupPath parameters are required');
     }
 
-    const sshConfig = resolveSSHConfig(args);
+    const sshConfig = this.resolveProfile(args);
     this.validateProfile(args?.profile, sshConfig);
     
     const project = await this.getProject(args?.project, sshConfig);
@@ -426,7 +467,7 @@ export class DatabaseTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = resolveSSHConfig(args);
+    const sshConfig = this.resolveProfile(args);
     this.validateProfile(args?.profile, sshConfig);
     
     const project = await this.getProject(args?.project, sshConfig);

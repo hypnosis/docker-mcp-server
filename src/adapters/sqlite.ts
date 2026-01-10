@@ -12,7 +12,7 @@ import type {
   DBStatus,
   ConnectionInfo,
 } from './types.js';
-import type { ServiceConfig } from '../discovery/types.js';
+import type { ServiceConfig, ProjectConfig } from '../discovery/types.js';
 import { ContainerManager } from '../managers/container-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { EnvManager } from '../managers/env-manager.js';
@@ -80,8 +80,9 @@ export class SQLiteAdapter implements DatabaseAdapter {
   /**
    * Create backup
    */
-  async backup(service: string, options: BackupOptions): Promise<string> {
-    const project = await this.projectDiscovery.findProject();
+  async backup(service: string, options: BackupOptions, projectConfig?: ProjectConfig): Promise<string> {
+    // ✅ FIX: Use provided project or find local project
+    const project = projectConfig || await this.projectDiscovery.findProject();
     const serviceConfig = project.services[service];
     if (!serviceConfig) {
       throw new Error(`Service '${service}' not found in project`);
@@ -108,9 +109,11 @@ export class SQLiteAdapter implements DatabaseAdapter {
   async restore(
     service: string,
     backupPath: string,
-    options?: RestoreOptions
+    options?: RestoreOptions,
+    projectConfig?: ProjectConfig
   ): Promise<void> {
-    const project = await this.projectDiscovery.findProject();
+    // ✅ FIX: Use provided project or find local project
+    const project = projectConfig || await this.projectDiscovery.findProject();
     const serviceConfig = project.services[service];
     if (!serviceConfig) {
       throw new Error(`Service '${service}' not found in project`);

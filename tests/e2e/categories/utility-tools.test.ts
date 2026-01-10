@@ -6,14 +6,14 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { MCPHealthTool } from '../../../src/tools/mcp-health-tool.js';
 import { ProfileTool } from '../../../src/tools/profile-tool.js';
-import { setupE2E, DOCKER_TIMEOUT } from '../setup.js';
+import { verifyDocker, DOCKER_TIMEOUT } from '../setup.js';
 
 describe('Utility Tools E2E', () => {
   let mcpHealthTool: MCPHealthTool;
   let profileTool: ProfileTool;
 
   beforeAll(async () => {
-    await setupE2E();
+    await verifyDocker(); // Проверяем что Docker работает (контейнеры уже подняты глобально)
     mcpHealthTool = new MCPHealthTool();
     profileTool = new ProfileTool();
   }, DOCKER_TIMEOUT);

@@ -6,14 +6,14 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ContainerTools } from '../../../src/tools/container-tools.js';
 import { DatabaseTools } from '../../../src/tools/database-tools.js';
-import { setupE2E, DOCKER_TIMEOUT } from '../setup.js';
+import { verifyDocker, DOCKER_TIMEOUT } from '../setup.js';
 
 describe('Profile Parameter E2E', () => {
   let containerTools: ContainerTools;
   let databaseTools: DatabaseTools;
 
   beforeAll(async () => {
-    await setupE2E();
+    await verifyDocker(); // Проверяем что Docker работает (контейнеры уже подняты глобально)
     containerTools = new ContainerTools();
     databaseTools = new DatabaseTools();
   }, DOCKER_TIMEOUT);
@@ -75,9 +75,11 @@ describe('Profile Parameter E2E', () => {
 
       // ✅ ДОЛЖНА БЫТЬ ЯВНАЯ ОШИБКА
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('PROFILE ERROR');
-      expect(result.content[0].text).toContain('non-existent-profile-12345');
-      expect(result.content[0].text).toContain('NO FALLBACK TO LOCAL');
+      const errorText = result.content[0].text;
+      expect(errorText).toContain('PROFILE ERROR');
+      expect(errorText).toContain('non-existent-profile-12345');
+      expect(errorText).toContain('NO FALLBACK TO LOCAL');
+      expect(errorText).toContain('Possible causes');
     }, DOCKER_TIMEOUT);
 
     it('should provide helpful error message with troubleshooting', async () => {
@@ -97,9 +99,10 @@ describe('Profile Parameter E2E', () => {
       const errorText = result.content[0].text;
       
       // Проверяем полезность ошибки
-      expect(errorText).toContain('Possible causes:');
+      expect(errorText).toContain('Possible causes');
       expect(errorText).toContain('not found in profiles.json');
-      expect(errorText).toContain('DOCKER_MCP_PROFILES_FILE');
+      expect(errorText).toContain('DOCKER_PROFILES_FILE');
+      expect(errorText).toContain('invalid-profile-test');
     }, DOCKER_TIMEOUT);
   });
 

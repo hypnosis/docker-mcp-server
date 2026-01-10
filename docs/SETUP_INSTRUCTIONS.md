@@ -205,8 +205,9 @@ Complete documentation is available in the [`docs/`](./docs/) directory:
 
 ✅ Universal — Works with any Docker project
 ✅ Auto-Discovery — Zero configuration needed
-✅ 16 Commands — Container + Database + Environment management + CLI interface
+✅ 20 Commands — Container + Database + Environment + Discovery + Utility management + CLI interface
 ✅ 3 Databases — PostgreSQL, Redis, SQLite (extensible)
+✅ Remote Docker — SSH-based remote server management via profiles (v1.3.0)
 ✅ Secure — Automatic secrets masking
 
 ## Installation
@@ -248,7 +249,7 @@ git add .
 git commit -m "Initial commit: Add complete documentation
 
 - Complete architecture and design documentation
-- API reference for all 16 commands
+- API reference for all 20 commands
 - Database adapter pattern guide
 - Real-world usage examples
 - Implementation roadmap"

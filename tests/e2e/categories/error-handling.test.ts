@@ -6,14 +6,14 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ContainerTools } from '../../../src/tools/container-tools.js';
 import { DatabaseTools } from '../../../src/tools/database-tools.js';
-import { setupE2E, DOCKER_TIMEOUT } from '../setup.js';
+import { verifyDocker, DOCKER_TIMEOUT } from '../setup.js';
 
 describe('Error Handling E2E', () => {
   let containerTools: ContainerTools;
   let databaseTools: DatabaseTools;
 
   beforeAll(async () => {
-    await setupE2E();
+    await verifyDocker(); // Проверяем что Docker работает (контейнеры уже подняты глобально)
     containerTools = new ContainerTools();
     databaseTools = new DatabaseTools();
   }, DOCKER_TIMEOUT);

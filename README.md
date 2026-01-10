@@ -109,6 +109,26 @@ Create `~/.docker-mcp/profiles.json`:
 
 **Note:** If the profiles file doesn't exist or is invalid, the server will gracefully fall back to local Docker — no errors, no configuration needed!
 
+### Using Profiles in Commands
+
+Starting from v1.3.0, you can specify a `profile` parameter in any command to work with remote servers:
+
+```typescript
+// List containers on remote production server
+docker_container_list({profile: "production"})
+
+// Query database on remote server
+docker_db_query({service: "postgres", query: "SELECT * FROM users;", profile: "production"})
+
+// Check status on staging server
+docker_container_stats({service: "web", profile: "staging"})
+
+// Local Docker (default, no profile needed)
+docker_container_list()  // Uses local Docker automatically
+```
+
+See [Remote Docker Guide](docs/REMOTE_DOCKER.md) for detailed information about profiles and remote management.
+
 ### Configuration for Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):

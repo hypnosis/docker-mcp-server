@@ -560,7 +560,7 @@ class ComposeManager {
 
 ## 🎯 Design Trade-offs
 
-### Why 16 Commands?
+### Why 20 Commands?
 
 **Decision:** Limited set of specialized commands + universal executor
 
@@ -569,11 +569,12 @@ class ComposeManager {
 - Only `docker_exec` (not user-friendly)
 
 **Rationale:**
-- 16 commands cover 95% of use cases
+- 20 commands cover 95% of use cases (evolved from 16 to 20 in v1.2.0+)
 - `docker_exec` provides unlimited extensibility
 - Easy to learn and remember
 - Minimal maintenance burden
 - CLI interface for direct command execution
+- Added resource monitoring (stats, resource_list), project discovery (projects), and utility tools (mcp_health, profile_info)
 
 ### Why Auto-Discovery?
 

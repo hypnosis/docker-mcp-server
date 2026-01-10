@@ -5,13 +5,13 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ExecutorTool } from '../../../src/tools/executor-tool.js';
-import { setupE2E, DOCKER_TIMEOUT } from '../setup.js';
+import { verifyDocker, DOCKER_TIMEOUT } from '../setup.js';
 
 describe('Executor Tool E2E', () => {
   let executorTool: ExecutorTool;
 
   beforeAll(async () => {
-    await setupE2E();
+    await verifyDocker(); // Проверяем что Docker работает (контейнеры уже подняты глобально)
     executorTool = new ExecutorTool();
   }, DOCKER_TIMEOUT);
 

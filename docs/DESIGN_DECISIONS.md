@@ -41,31 +41,34 @@
 
 ## Command Set
 
-### Why 16 Commands?
+### Why 20 Commands?
 
-**Decision:** Limited set of 16 specialized commands + universal executor.
+**Decision:** Limited set of 20 specialized commands + universal executor.
 
 **Alternatives Considered:**
 
 | Approach | Commands | Pros | Cons |
 |----------|----------|------|------|
 | Minimal | 1-5 | Simple | Not user-friendly |
-| **Balanced** | **16** | **Covers 95% cases** | **Chosen** |
+| **Balanced** | **20** | **Covers 95% cases** | **Chosen** |
 | Comprehensive | 50+ | Feature-rich | Complex, hard to maintain |
 
 **Rationale:**
-- **Pareto Principle** — 16 commands cover 95% of use cases
+- **Pareto Principle** — 20 commands cover 95% of use cases
 - **Learnability** — Easy to remember and discover
 - **Extensibility** — `docker_exec` provides unlimited flexibility
 - **Maintenance** — Reasonable codebase size
+- **Evolution** — Started with 16, expanded to 20 with resource monitoring, project discovery, and utility tools (v1.2.0+)
 
 **Command Categories:**
 
 ```
-Container Management (7)  — Most common operations
+Container Management (9)  — Most common operations
 ├─ list, start, stop, restart
 ├─ logs (with follow mode)
-└─ compose up/down
+├─ stats (resource monitoring)
+├─ compose up/down
+└─ resource_list (images, volumes, networks)
 
 Database Operations (4)   — Essential DB tasks
 ├─ query (universal for all DB types)
@@ -80,8 +83,12 @@ Environment (3)           — Configuration management
 Universal (1)             — Unlimited extensibility
 └─ exec (runs anything)
 
-MCP Health (1)            — Server diagnostics
-└─ mcp_health (system status)
+Discovery (1)             — Project discovery
+└─ projects (list all Docker projects)
+
+Utility (2)               — Server diagnostics and config
+├─ mcp_health (system status)
+└─ profile_info (show profile configuration)
 ```
 
 ### Why docker_exec is Critical

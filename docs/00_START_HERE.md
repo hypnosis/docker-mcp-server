@@ -50,8 +50,9 @@ AI: docker_db_query("postgres", "SELECT COUNT(*) FROM users WHERE active=true;")
 
 ✅ **Universal** — Works with ANY Docker project
 ✅ **Auto-Discovery** — Zero configuration needed
-✅ **16 Commands** — Container, database, environment management + CLI interface
+✅ **20 Commands** — Container, database, environment, discovery, utility management + CLI interface
 ✅ **3 Databases** — PostgreSQL, Redis, SQLite (extensible)
+✅ **Remote Docker** — SSH-based remote server management via profiles
 ✅ **Secure** — Automatic secrets masking
 ✅ **Follow Logs** — Real-time log streaming
 
@@ -59,11 +60,13 @@ AI: docker_db_query("postgres", "SELECT COUNT(*) FROM users WHERE active=true;")
 
 ## 📋 Command Summary
 
-### Container Management (7 commands)
-- `docker_container_list()` — List all containers
+### Container Management (9 commands)
+- `docker_container_list()` — List all containers (grouped by project)
 - `docker_container_start/stop/restart(service)` — Manage containers
 - `docker_container_logs(service, {follow: true})` — View logs
+- `docker_container_stats(service)` — Get resource usage (CPU, Memory, Network, Block I/O)
 - `docker_compose_up/down()` — Manage entire stack
+- `docker_resource_list({type: "images"|"volumes"|"networks"})` — List Docker resources
 
 ### Database Operations (4 commands)
 - `docker_db_query(service, sql)` — Execute queries
@@ -78,6 +81,13 @@ AI: docker_db_query("postgres", "SELECT COUNT(*) FROM users WHERE active=true;")
 
 ### Universal (1 command)
 - `docker_exec(service, command)` — Execute ANYTHING
+
+### Discovery (1 command)
+- `docker_projects()` — List all Docker projects with status (fast, ~2s)
+
+### Utility (2 commands)
+- `docker_mcp_health()` — Server diagnostics and health check
+- `docker_profile_info()` — Show current profile and available profiles
 
 ---
 
@@ -222,11 +232,12 @@ touch src/tools/{container-tools.ts,database-tools.ts,env-tools.ts,executor-tool
 - Not tied to specific frameworks
 - Maximum reusability
 
-### Why 16 Commands?
-- Covers 95% of use cases
+### Why 20 Commands?
+- Covers 95% of use cases (evolved from 16 to 20 in v1.2.0+)
 - Easy to learn and remember
 - `docker_exec` provides unlimited extensibility
 - CLI interface for direct command execution
+- Added resource monitoring, project discovery, and utility tools
 
 ### Why Auto-Discovery?
 - Zero configuration

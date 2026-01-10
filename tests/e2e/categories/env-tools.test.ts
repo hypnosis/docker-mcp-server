@@ -5,13 +5,13 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { EnvTools } from '../../../src/tools/env-tools.js';
-import { setupE2E, DOCKER_TIMEOUT } from '../setup.js';
+import { verifyDocker, DOCKER_TIMEOUT } from '../setup.js';
 
 describe('Environment Tools E2E', () => {
   let envTools: EnvTools;
 
   beforeAll(async () => {
-    await setupE2E();
+    await verifyDocker(); // Проверяем что Docker работает (контейнеры уже подняты глобально)
     envTools = new EnvTools();
   }, DOCKER_TIMEOUT);
 

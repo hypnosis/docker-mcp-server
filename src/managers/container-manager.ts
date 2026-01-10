@@ -307,6 +307,33 @@ export class ContainerManager {
   }
 
   /**
+   * Get environment variables from running container
+   * Returns env vars from container.Config.Env (more reliable than compose file)
+   */
+  async getContainerEnv(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<Record<string, string> | null> {
+    try {
+      const container = await this.findContainer(serviceName, projectName, composeFile, projectDir);
+      const info = await this.withRetry(() => container.inspect());
+      const containerEnv: string[] = info.Config?.Env || [];
+      
+      // Parse env array (format: "KEY=value") into object
+      const env: Record<string, string> = {};
+      for (const envLine of containerEnv) {
+        const [key, ...valueParts] = envLine.split('=');
+        if (key) {
+          env[key] = valueParts.join('='); // Handle values that contain '='
+        }
+      }
+      
+      logger.debug(`Loaded ${Object.keys(env).length} env vars from container ${serviceName}`);
+      return env;
+    } catch (error: any) {
+      logger.debug(`Failed to get env from container ${serviceName}: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Find container by service name
    */
   private async findContainer(serviceName: string, projectName: string, composeFile?: string, projectDir?: string): Promise<Docker.Container> {

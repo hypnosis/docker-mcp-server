@@ -5,13 +5,13 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { DatabaseTools } from '../../../src/tools/database-tools.js';
-import { setupE2E, DOCKER_TIMEOUT } from '../setup.js';
+import { verifyDocker, DOCKER_TIMEOUT } from '../setup.js';
 
 describe('Database Tools E2E', () => {
   let databaseTools: DatabaseTools;
 
   beforeAll(async () => {
-    await setupE2E();
+    await verifyDocker(); // Проверяем что Docker работает (контейнеры уже подняты глобально)
     databaseTools = new DatabaseTools();
   }, DOCKER_TIMEOUT);
 

@@ -107,7 +107,7 @@ src/
 
 ## 📝 Command Reference
 
-### Complete Command List (16 total)
+### Complete Command List (20 total)
 
 | Category | Command | Description |
 |----------|---------|-------------|
@@ -116,8 +116,10 @@ src/
 | | `docker_container_stop` | Stop container |
 | | `docker_container_restart` | Restart container |
 | | `docker_container_logs` | View logs (with follow) |
+| | `docker_container_stats` | Get container resource usage |
 | | `docker_compose_up` | Start all services |
 | | `docker_compose_down` | Stop all services |
+| | `docker_resource_list` | List images, volumes, networks |
 | **Database** | `docker_db_query` | Execute SQL/command |
 | | `docker_db_backup` | Create backup |
 | | `docker_db_restore` | Restore from backup |
@@ -126,19 +128,23 @@ src/
 | | `docker_compose_config` | Show parsed config |
 | | `docker_healthcheck` | Health check all |
 | **Universal** | `docker_exec` | Execute any command |
-| **MCP Health** | `docker_mcp_health` | Server diagnostics |
+| **Discovery** | `docker_projects` | List all Docker projects |
+| **Utility** | `docker_mcp_health` | Server diagnostics |
+| | `docker_profile_info` | Show profile configuration |
 
 ---
 
 ## 🎨 Design Decisions
 
-### Why 16 Commands?
+### Why 20 Commands?
 
 **Decision:** Balanced approach between minimal and comprehensive.
 
 - **Too few** (1-5) → Not user-friendly
-- **Just right** (15) → Covers 95% of use cases ✅
+- **Just right** (20) → Covers 95% of use cases ✅
 - **Too many** (50+) → Hard to maintain
+
+**Evolution:** Started with 16 commands, expanded to 20 in v1.2.0+ with resource monitoring, project discovery, and utility tools.
 
 ### Why Auto-Discovery?
 
@@ -396,12 +402,16 @@ git clone && npm install && npm link
 
 ## 📈 Success Metrics
 
-### v1.0 Goals
+### v1.3.0 Goals (Achieved)
 
-- ✅ 16 commands implemented
+- ✅ 20 commands implemented (Container, Database, Environment, Discovery, Utility)
 - ✅ CLI interface for direct command execution
 - ✅ 3 database adapters (PostgreSQL, Redis, SQLite)
-- ✅ 80%+ test coverage
+- ✅ Remote Docker support via SSH profiles
+- ✅ Profile-based multi-environment management
+- ✅ Container resource monitoring (CPU, Memory, Network, Block I/O)
+- ✅ Remote project discovery
+- ✅ 80%+ test coverage (32 E2E tests, Unit tests)
 - ✅ Complete documentation
 - ✅ npm package published
 

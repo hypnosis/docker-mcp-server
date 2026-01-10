@@ -687,52 +687,88 @@ docker_db_backup("postgres", "./backups/prod-2024-12-31.sql")
 docker_container_stats("api")
 ```
 
-### Multi-Environment Management
+### Multi-Environment Management (v1.3.0)
 
-**Setup with Profiles:**
+**Setup with Profiles File:**
+
+Create `~/.docker-mcp/profiles.json`:
 ```json
 {
-  "DOCKER_SSH_PROFILE": "production",
-  "DOCKER_SSH_PROFILES": "{\"production\":{\"host\":\"prod.com\",\"username\":\"deployer\"},\"staging\":{\"host\":\"staging.com\",\"username\":\"deployer\"}}"
+  "default": "local",
+  "profiles": {
+    "local": {
+      "mode": "local"
+    },
+    "staging": {
+      "host": "staging.example.com",
+      "username": "deployer",
+      "port": 22,
+      "privateKeyPath": "~/.ssh/id_rsa_staging",
+      "projectsPath": "/var/www"
+    },
+    "production": {
+      "host": "prod.example.com",
+      "username": "deployer",
+      "port": 22,
+      "privateKeyPath": "~/.ssh/id_rsa_prod",
+      "projectsPath": "/var/www"
+    }
+  }
+}
+```
+
+**Workflow with Profile Parameter:**
+
+```typescript
+// Test on staging first (no restart needed!)
+docker_compose_up({profile: "staging", build: true})
+docker_exec({service: "web", command: "npm test", profile: "staging"})
+docker_db_query({service: "postgres", query: "SELECT * FROM test_users;", profile: "staging"})
+
+// Deploy to production after staging tests pass
+docker_compose_up({profile: "production", build: true})
+docker_container_logs({service: "web", profile: "production", lines: 50})
+
+// All in the same session - no restart required!
+```
+
+### Remote Development Server (v1.3.0)
+
+**Scenario:** Team shares a remote development server
+
+**Setup:** Add profile to `~/.docker-mcp/profiles.json`:
+```json
+{
+  "profiles": {
+    "dev-server": {
+      "host": "dev.example.com",
+      "username": "developer",
+      "port": 22,
+      "privateKeyPath": "~/.ssh/id_rsa_dev",
+      "projectsPath": "/home/developer/projects"
+    }
+  }
 }
 ```
 
 **Workflow:**
 
 ```typescript
-// Switch to staging (update DOCKER_SSH_PROFILE to "staging")
-// Restart Cursor to apply changes
+// Connect to shared dev server using profile
+// No SSH config in MCP settings needed!
 
-// Test on staging first
-docker_compose_up({build: true})
-docker_exec("web", "npm test")
-docker_db_query("postgres", "SELECT * FROM test_users;")
-
-// Switch to production (update DOCKER_SSH_PROFILE to "production")
-// Deploy after staging tests pass
-docker_compose_up({build: true})
-```
-
-### Remote Development Server
-
-**Scenario:** Team shares a remote development server
-
-```typescript
-// Connect to shared dev server
-// (SSH config in MCP settings)
-
-// Start development environment
-docker_compose_up({build: true, detach: true})
+// Start development environment on remote server
+docker_compose_up({profile: "dev-server", build: true, detach: true})
 
 // Run tests remotely
-docker_exec("web", "npm test")
+docker_exec({service: "web", command: "npm test", profile: "dev-server"})
 
 // Check logs from remote
-docker_container_logs("web", {follow: true, lines: 50})
+docker_container_logs({service: "web", profile: "dev-server", follow: true, lines: 50})
 
 // Database work on remote
-docker_db_query("postgres", "SELECT * FROM migrations;")
-docker_exec("api", "python manage.py migrate")
+docker_db_query({service: "postgres", query: "SELECT * FROM migrations;", profile: "dev-server"})
+docker_exec({service: "api", command: "python manage.py migrate", profile: "dev-server"})
 ```
 
 ### CI/CD Integration
@@ -767,7 +803,7 @@ docker_container_logs("web", {lines: 20})
 
 ### Profile Parameter — Parallel Access to LOCAL and REMOTE
 
-**New in v1.2.0:** Work with both local and remote environments in the same session.
+**Available in v1.3.0:** Work with both local and remote environments in the same session using profile parameter.
 
 **Scenario 1: Compare Local vs Production**
 
@@ -852,5 +888,7 @@ docker_exec("web", "uptime")  // System uptime
 
 ---
 
-**Real-world examples for Docker MCP Server v1.1.0**
+**Real-world examples for Docker MCP Server v1.3.0**
+
+**Note:** All examples work in both local and remote modes. Add `profile: "profile-name"` parameter to use remote Docker servers configured in `~/.docker-mcp/profiles.json`.
 

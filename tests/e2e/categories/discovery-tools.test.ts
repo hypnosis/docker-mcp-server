@@ -5,13 +5,13 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { DiscoveryTools } from '../../../src/tools/discovery-tools.js';
-import { setupE2E, DOCKER_TIMEOUT } from '../setup.js';
+import { verifyDocker, DOCKER_TIMEOUT } from '../setup.js';
 
 describe('Discovery Tools E2E', () => {
   let discoveryTools: DiscoveryTools;
 
   beforeAll(async () => {
-    await setupE2E();
+    await verifyDocker(); // Проверяем что Docker работает (контейнеры уже подняты глобально)
     discoveryTools = new DiscoveryTools();
   }, DOCKER_TIMEOUT);
 

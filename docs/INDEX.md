@@ -43,14 +43,15 @@ This directory contains complete documentation for the **Docker MCP Server** pro
 
 ### 3. [API_REFERENCE.md](./API_REFERENCE.md) — Complete Command Reference
 
-**Detailed reference for all 16 commands**
+**Detailed reference for all 20 commands**
 
-- Container Management (7 commands)
+- Container Management (9 commands)
 - Database Operations (4 commands)
 - Environment & Config (3 commands)
 - Universal Executor (1 command)
-- MCP Health (1 command)
-- Parameters, options, examples
+- Project Discovery (1 command)
+- Utility Tools (2 commands)
+- Parameters, options, examples (including profile parameter for remote Docker)
 - Error handling
 
 **Complete API documentation**
@@ -62,7 +63,7 @@ This directory contains complete documentation for the **Docker MCP Server** pro
 **Design philosophy and trade-offs**
 
 - Core philosophy
-- Why 16 commands?
+- Why 20 commands? (evolved from 16 to 20 in v1.2.0+)
 - Why auto-discovery?
 - Why adapter pattern?
 - Why TypeScript?
@@ -83,6 +84,8 @@ This directory contains complete documentation for the **Docker MCP Server** pro
 - Data Science (Jupyter + PostgreSQL)
 - Microservices
 - Common workflows (morning startup, debugging, deployment)
+- Remote Docker management with profiles (v1.3.0)
+- Multi-environment workflows (local, staging, production)
 
 **Learn by example**
 
@@ -322,7 +325,7 @@ This directory contains complete documentation for the **Docker MCP Server** pro
 
 ---
 
-**Documentation Index for Docker MCP Server v1.0.0**
+**Documentation Index for Docker MCP Server v1.3.0**
 **Created:** December 31, 2024
-**Last Updated:** December 31, 2024
+**Last Updated:** January 10, 2026
 

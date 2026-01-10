@@ -53,7 +53,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
       throw new Error(`Service '${service}' not found in project`);
     }
 
-    const env = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+    // ✅ FIX: Get env from running container first (more reliable), fallback to compose file
+    const containerEnv = await this.containerManager.getContainerEnv(service, project.name, project.composeFile, project.projectDir);
+    const composeEnv = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+    const env = containerEnv || composeEnv; // Use container env if available, otherwise compose
     const conn = this.getConnectionInfo(serviceConfig, env);
 
     const db = options?.database || conn.database;
@@ -90,13 +93,17 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
    * Create backup
    */
   async backup(service: string, options: BackupOptions, projectConfig?: ProjectConfig): Promise<string> {
-    const project = await this.projectDiscovery.findProject();
+    // ✅ FIX: Use provided project or find local project
+    const project = projectConfig || await this.projectDiscovery.findProject();
     const serviceConfig = project.services[service];
     if (!serviceConfig) {
       throw new Error(`Service '${service}' not found in project`);
     }
 
-    const env = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+    // ✅ FIX: Get env from running container first (more reliable), fallback to compose file
+    const containerEnv = await this.containerManager.getContainerEnv(service, project.name, project.composeFile, project.projectDir);
+    const composeEnv = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+    const env = containerEnv || composeEnv; // Use container env if available, otherwise compose
     const conn = this.getConnectionInfo(serviceConfig, env);
 
     const format = options.format || 'custom';
@@ -130,9 +137,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
 
     logger.info(`Creating PostgreSQL backup: ${output}`);
 
+    // ✅ FIX BUG-007: Pass composeFile and projectDir for remote mode
     await this.containerManager.exec(service, project.name, cmd, {
       env: envVars,
-    });
+    }, project.composeFile, project.projectDir);
 
     return output;
   }
@@ -143,15 +151,20 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   async restore(
     service: string,
     backupPath: string,
-    options?: RestoreOptions
+    options?: RestoreOptions,
+    projectConfig?: ProjectConfig
   ): Promise<void> {
-    const project = await this.projectDiscovery.findProject();
+    // ✅ FIX: Use provided project or find local project
+    const project = projectConfig || await this.projectDiscovery.findProject();
     const serviceConfig = project.services[service];
     if (!serviceConfig) {
       throw new Error(`Service '${service}' not found in project`);
     }
 
-    const env = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+    // ✅ FIX: Get env from running container first (more reliable), fallback to compose file
+    const containerEnv = await this.containerManager.getContainerEnv(service, project.name, project.composeFile, project.projectDir);
+    const composeEnv = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+    const env = containerEnv || composeEnv; // Use container env if available, otherwise compose
     const conn = this.getConnectionInfo(serviceConfig, env);
 
     const db = options?.database || conn.database;
@@ -185,9 +198,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
 
     logger.info(`Restoring PostgreSQL from backup: ${backupPath}`);
 
+    // ✅ FIX BUG-007: Pass composeFile and projectDir for remote mode
     await this.containerManager.exec(service, project.name, cmd, {
       env: envVars,
-    });
+    }, project.composeFile, project.projectDir);
   }
 
   /**
@@ -201,7 +215,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
       throw new Error(`Service '${service}' not found in project`);
     }
 
-    const env = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+    // ✅ FIX: Get env from running container first (more reliable), fallback to compose file
+    const containerEnv = await this.containerManager.getContainerEnv(service, project.name, project.composeFile, project.projectDir);
+    const composeEnv = this.envManager.loadEnv(project.projectDir, service, serviceConfig);
+    const env = containerEnv || composeEnv; // Use container env if available, otherwise compose
     const conn = this.getConnectionInfo(serviceConfig, env);
 
     // Get version - pass projectConfig to query

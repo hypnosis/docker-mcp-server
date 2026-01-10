@@ -81,13 +81,14 @@ Then restart Claude Desktop.
 
 ### Q: What commands are available?
 
-**A:** 16 MCP commands total:
+**A:** 20 MCP commands total:
 
-- **Container Management (7):** list, start, stop, restart, logs, compose up, compose down
+- **Container Management (9):** list, start, stop, restart, logs, stats, compose up, compose down, resource_list
 - **Database Operations (4):** query, backup, restore, status
 - **Environment & Config (3):** env_list, compose_config, healthcheck
 - **Universal Executor (1):** docker_exec
-- **MCP Health (1):** docker_mcp_health
+- **Project Discovery (1):** docker_projects
+- **Utility Tools (2):** docker_mcp_health, docker_profile_info
 
 See [API Reference](./API_REFERENCE.md) for complete documentation.
 
@@ -186,7 +187,13 @@ When enabled, it blocks dangerous operations like `DROP DATABASE`, `DELETE` with
 
 ### Q: Can I use it with remote Docker hosts?
 
-**A:** The server uses Dockerode, which supports remote Docker hosts via environment variables (`DOCKER_HOST`). However, this hasn't been extensively tested.
+**A:** Yes! Starting from v1.3.0, the server fully supports remote Docker hosts via SSH profiles. You can:
+
+1. **Configure profiles** in `~/.docker-mcp/profiles.json` or via `DOCKER_PROFILES_FILE`
+2. **Use profile parameter** in any command: `docker_container_list({profile: "production"})`
+3. **Work with multiple environments** in the same session (local, staging, production)
+
+See [Remote Docker Guide](./REMOTE_DOCKER.md) for detailed setup instructions.
 
 ---
 
@@ -318,5 +325,5 @@ Check GitHub Issues and Discussions for roadmap discussions.
 
 **Still have questions?** Open a GitHub Discussion or Issue!
 
-**Last Updated:** 2025-01-01
+**Last Updated:** 2026-01-10 (v1.3.0)
 

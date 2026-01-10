@@ -36,7 +36,7 @@ Docker MCP Server v1.0.0 successfully passed full testing cycle:
 **File:** `hypnosis-docker-mcp-server-1.0.0.tgz`
 
 **Contents:**
-- `dist/` — compiled code (16 commands)
+- `dist/` — compiled code (20 commands)
 - `README.md` — documentation
 - `LICENSE` — MIT license
 - `package.json` — correct configuration
@@ -61,14 +61,14 @@ node /path/to/node_modules/@hypnosis/docker-mcp-server/dist/index.js
 - ✅ Server starts without errors
 - ✅ Docker connection verified
 - ✅ 3 database adapters registered (PostgreSQL, Redis, SQLite)
-- ✅ 16 commands registered
+- ✅ 20 commands registered
 
 **Log:**
 ```
-[INFO] Docker MCP Server v1.0.0 starting...
+[INFO] Docker MCP Server v1.3.0 starting...
 [INFO] Docker connection verified
 [INFO] Registered database adapters: postgresql, redis, sqlite
-[INFO] Registered tools: 16 commands (7 container + 1 executor + 4 database + 3 environment + 1 mcp-health)
+[INFO] Registered tools: 20 commands (9 container + 1 executor + 4 database + 3 environment + 1 discovery + 2 utility)
 [INFO] Server ready on stdio
 ```
 
@@ -139,7 +139,7 @@ node /path/to/node_modules/@hypnosis/docker-mcp-server/dist/index.js
     }
   },
   "mcpUsage": {
-    "docker": "Docker MCP Server: container management, databases (PostgreSQL/Redis/SQLite), environment variables, docker-compose. 16 commands. Auto-discovery."
+    "docker": "Docker MCP Server: container management, databases (PostgreSQL/Redis/SQLite), environment variables, docker-compose. 20 commands. Auto-discovery. Remote Docker support via SSH profiles."
   }
 }
 ```
@@ -346,7 +346,7 @@ Containers found via labels (option 1) — fastest and cleanest approach.
 
 **All criteria met:**
 - ✅ Code works without errors
-- ✅ All 16 commands tested
+- ✅ All 20 commands tested (Container, Database, Environment, Discovery, Utility)
 - ✅ Documentation up-to-date
 - ✅ Cursor integration works
 - ✅ Real operations execute correctly

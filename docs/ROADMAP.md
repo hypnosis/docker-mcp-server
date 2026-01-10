@@ -177,4 +177,5 @@ We welcome community input on the roadmap!
 ---
 
 **Last Updated:** 2026-01-10  
+**Current Version:** 1.3.0 (Released 2026-01-10)  
 **Next Review:** 2026-04-10
