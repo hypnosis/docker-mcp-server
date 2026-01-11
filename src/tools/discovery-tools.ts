@@ -8,15 +8,13 @@ import {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from '../utils/logger.js';
-import type { SSHConfig } from '../utils/ssh-config.js';
 import { RemoteProjectDiscovery } from '../discovery/remote-discovery.js';
-import { getDockerClient } from '../utils/docker-client.js';
-import { resolveSSHConfig } from '../utils/profile-resolver.js';
+import { getDockerClientForProfile } from '../utils/docker-client.js';
 
 export class DiscoveryTools {
-  // ❗ АРХИТЕКТУРА: sshConfig резолвится из args.profile при каждом вызове
+  // ❗ АРХИТЕКТУРА: profile резолвится из args.profile при каждом вызове
   constructor() {
-    // No shared state - sshConfig resolved per request
+    // No shared state - profile resolved per request
   }
 
   /**
@@ -77,11 +75,8 @@ export class DiscoveryTools {
    * Works for both local and remote Docker using Docker Compose labels
    */
   private async handleProjects(args: any) {
-    // Resolve SSH config from profile
-    const sshConfig = resolveSSHConfig(args);
-    
     // Get Docker client (works for both local and remote)
-    const dockerClient = getDockerClient(sshConfig);
+    const dockerClient = getDockerClientForProfile(args.profile);
     const docker = dockerClient.getClient();
 
     // Get all containers with compose labels

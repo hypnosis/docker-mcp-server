@@ -7,7 +7,7 @@ import { ComposeExec } from '../utils/compose-exec.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
 import { extractPortFromError, findContainerByPort, stopContainerById } from '../utils/port-utils.js';
-import { loadSSHConfig } from '../utils/ssh-config.js';
+import { loadProfileConfig } from '../utils/docker-client.js';
 import type { SSHConfig } from '../utils/ssh-config.js';
 
 export interface ComposeUpOptions {
@@ -27,13 +27,13 @@ export class ComposeManager {
   private projectDiscovery: ProjectDiscovery;
   private sshConfig: SSHConfig | null;
 
-  constructor(sshConfig?: SSHConfig | null) {
+  constructor(profileName?: string) {
     this.projectDiscovery = new ProjectDiscovery();
-    // Если SSH config не передан, пытаемся загрузить из env
-    this.sshConfig = sshConfig !== undefined ? sshConfig : (loadSSHConfig().config || null);
+    // Load SSH config from profile (if specified)
+    this.sshConfig = profileName ? loadProfileConfig(profileName) : null;
     
     if (this.sshConfig) {
-      logger.debug(`ComposeManager initialized with SSH config: ${this.sshConfig.host}`);
+      logger.debug(`ComposeManager initialized with profile "${profileName}": ${this.sshConfig.host}`);
     }
   }
 

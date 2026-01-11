@@ -3,7 +3,7 @@
  * Утилиты для работы с портами Docker контейнеров
  */
 
-import { getDockerClient } from './docker-client.js';
+import { getDockerClientForProfile } from './docker-client.js';
 import { logger } from './logger.js';
 
 export interface PortConflict {
@@ -17,7 +17,7 @@ export interface PortConflict {
  * Находит контейнер, который занимает указанный порт
  */
 export async function findContainerByPort(port: number): Promise<PortConflict | null> {
-  const docker = getDockerClient().getClient();
+  const docker = getDockerClientForProfile().getClient();
   
   try {
     // Получаем все контейнеры (включая остановленные)
@@ -85,7 +85,7 @@ export function extractPortFromError(errorMessage: string): number | null {
  * Останавливает контейнер по ID
  */
 export async function stopContainerById(containerId: string): Promise<void> {
-  const docker = getDockerClient().getClient();
+  const docker = getDockerClientForProfile().getClient();
   
   try {
     const container = docker.getContainer(containerId);

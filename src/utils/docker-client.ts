@@ -220,15 +220,37 @@ export class DockerClient {
       }
     }
 
-    // Check SSH key existence (if specified)
+    // ✨ Strict SSH key validation
+    const allowFallback = process.env.DOCKER_MCP_ALLOW_SSH_FALLBACK === 'true';
+    
     if (config.privateKeyPath) {
       const keyPath = this.resolveKeyPath(config.privateKeyPath);
       
       if (!existsSync(keyPath)) {
-        logger.warn(`SSH private key not found at: ${keyPath}. Make sure it's accessible via SSH agent or ~/.ssh/config`);
+        const errorMsg = 
+          `SSH private key not found: ${keyPath}\n` +
+          `\n` +
+          `Possible solutions:\n` +
+          `  1. Check the path in your profile configuration\n` +
+          `  2. Create the key: ssh-keygen -t ed25519 -f ${keyPath}\n` +
+          `  3. Use SSH Agent (remove privateKeyPath from config)\n` +
+          `  4. Enable fallback: DOCKER_MCP_ALLOW_SSH_FALLBACK=true (not recommended)`;
+        
+        if (allowFallback) {
+          logger.warn(`${errorMsg}\n\nFallback enabled, will try SSH Agent and default keys...`);
+        } else {
+          throw new Error(errorMsg);
+        }
       } else {
-        logger.debug(`SSH key found at: ${keyPath}`);
+        logger.info(`Using SSH key: ${keyPath}`);
       }
+    } else {
+      // No privateKeyPath → using SSH Agent / default keys (explicit!)
+      logger.warn(
+        `No privateKeyPath specified in profile. ` +
+        `Will use SSH Agent or default keys (~/.ssh/id_rsa, ~/.ssh/id_ed25519). ` +
+        `For explicit key, add "privateKeyPath" to your profile config.`
+      );
     }
 
     // Build SSH command for tunnel creation
@@ -432,66 +454,12 @@ export class DockerClient {
   }
 }
 
-// Singleton instance
-let dockerClientInstance: DockerClient | null = null;
-
-/**
- * Get singleton instance of DockerClient
- * @param sshConfig - SSH configuration (optional, for remote Docker)
- */
-export function getDockerClient(sshConfig?: SSHConfig | null): DockerClient {
-  // ❗ КРИТИЧНО: Каждый раз создаем новый клиент для правильной работы с SSH
-  // Singleton не работает правильно когда переключаемся между local и remote
-  // Если конфигурация изменилась, пересоздаем клиент
-  const requestedIsRemote = !!sshConfig;
-  const requestedHost = sshConfig?.host || null;
-  
-  const shouldRecreate = !dockerClientInstance || 
-    (sshConfig !== undefined && (
-      dockerClientInstance.isRemote !== requestedIsRemote ||
-      dockerClientInstance.getSSHHost() !== requestedHost
-    ));
-  
-  if (shouldRecreate) {
-    // Cleanup old instance if exists
-    if (dockerClientInstance) {
-      const oldConfig = dockerClientInstance.isRemote 
-        ? `remote (${dockerClientInstance.getSSHHost()})` 
-        : 'local';
-      const newConfig = requestedIsRemote 
-        ? `remote (${requestedHost})` 
-        : 'local';
-      logger.debug(`Recreating Docker client: ${oldConfig} -> ${newConfig}`);
-      dockerClientInstance.cleanup();
-    }
-    dockerClientInstance = new DockerClient(sshConfig);
-    logger.debug(`Docker client created: ${requestedIsRemote ? `remote (${requestedHost})` : 'local'}`);
-  }
-  return dockerClientInstance!; // Non-null: checked above
-}
-
-/**
- * Reset singleton instance (for testing)
- */
-export function resetDockerClient(): void {
-  if (dockerClientInstance) {
-    dockerClientInstance.cleanup();
-  }
-  dockerClientInstance = null;
-}
-
-/**
- * Cleanup all Docker clients (for graceful shutdown)
- */
-export function cleanupDockerClient(): void {
-  if (dockerClientInstance) {
-    dockerClientInstance.cleanup();
-  }
-}
-
 // ============================================================================
 // Profile-based Docker Client Pool
 // ============================================================================
+// ❗ NEW ARCHITECTURE: Clients cached by profile name, not by host
+// This fixes the bug where two profiles with same host but different SSH keys
+// would share the same client (security issue)
 
 /**
  * Pool of Docker clients by profile name
@@ -510,7 +478,7 @@ let localDockerClient: DockerClient | null = null;
  * @returns SSHConfig or null for local mode
  * @throws Error if profile not found or invalid
  */
-function loadProfileConfig(profileName: string): SSHConfig | null {
+export function loadProfileConfig(profileName: string): SSHConfig | null {
   const profilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
   
   if (!profilesFile) {
@@ -631,9 +599,6 @@ export function clearClientPool(): void {
  * Cleanup all Docker clients in pool (for graceful shutdown)
  */
 export function cleanupAllDockerClients(): void {
-  // Cleanup singleton
-  cleanupDockerClient();
-  
   // Cleanup pool
   clearClientPool();
 }

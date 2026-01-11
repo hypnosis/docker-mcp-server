@@ -7,7 +7,7 @@ import {
   CallToolRequest,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { getDockerClient } from '../utils/docker-client.js';
+import { getDockerClientForProfile } from '../utils/docker-client.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { adapterRegistry } from '../adapters/adapter-registry.js';
 import { projectConfigCache } from '../utils/cache.js';
@@ -15,7 +15,7 @@ import { logger } from '../utils/logger.js';
 
 export class MCPHealthTool {
   constructor() {
-    // SSH config is resolved dynamically per-tool call via resolveSSHConfig()
+    // Profile is resolved dynamically per-tool call from args.profile
   }
 
   /**
@@ -111,7 +111,7 @@ export class MCPHealthTool {
     // 1. Docker Connection (local only at startup)
     try {
       const start = Date.now();
-      const docker = getDockerClient(null); // Local Docker only
+      const docker = getDockerClientForProfile(); // Local Docker (no profile)
       await docker.ping();
       const latency = Date.now() - start;
       

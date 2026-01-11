@@ -11,12 +11,10 @@ import { ContainerManager } from '../managers/container-manager.js';
 import { ComposeManager } from '../managers/compose-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
-import type { SSHConfig } from '../utils/ssh-config.js';
-import { resolveSSHConfig } from '../utils/profile-resolver.js';
 
 export class ContainerTools {
   // ❗ АРХИТЕКТУРА: Managers НЕ хранятся в конструкторе
-  // Они создаются при каждом вызове с правильным sshConfig из args.profile
+  // Они создаются при каждом вызове с правильным profileName из args.profile
   constructor() {
     // No shared state - managers created per request
   }
@@ -313,8 +311,7 @@ export class ContainerTools {
   }
 
   private async handleList(args: any) {
-    const sshConfig = resolveSSHConfig(args);
-    const containerManager = new ContainerManager(sshConfig);
+    const containerManager = new ContainerManager(args.profile);
     
     // REST API approach:
     // - No project parameter: show ALL containers with compose labels
@@ -380,9 +377,8 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = resolveSSHConfig(args);
-    const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project, sshConfig);
+    const containerManager = new ContainerManager(args.profile);
+    const project = await this.getProject(args?.project, args.profile);
     await containerManager.startContainer(args.service, project.name, project.composeFile, project.projectDir);
 
     return {
@@ -400,9 +396,8 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = resolveSSHConfig(args);
-    const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project, sshConfig);
+    const containerManager = new ContainerManager(args.profile);
+    const project = await this.getProject(args?.project, args.profile);
     await containerManager.stopContainer(
       args.service,
       project.name,
@@ -426,9 +421,8 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = resolveSSHConfig(args);
-    const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project, sshConfig);
+    const containerManager = new ContainerManager(args.profile);
+    const project = await this.getProject(args?.project, args.profile);
     await containerManager.restartContainer(
       args.service,
       project.name,
@@ -452,9 +446,8 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = resolveSSHConfig(args);
-    const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project, sshConfig);
+    const containerManager = new ContainerManager(args.profile);
+    const project = await this.getProject(args?.project, args.profile);
     const logs = await containerManager.getLogs(
       args.service,
       project.name,
@@ -507,8 +500,7 @@ export class ContainerTools {
   }
 
   private async handleComposeUp(args: any) {
-    const sshConfig = resolveSSHConfig(args);
-    const composeManager = new ComposeManager(sshConfig);
+    const composeManager = new ComposeManager(args.profile);
     await composeManager.composeUp({
       build: args?.build || false,
       detach: args?.detach !== false, // default: true
@@ -527,8 +519,7 @@ export class ContainerTools {
   }
 
   private async handleComposeDown(args: any) {
-    const sshConfig = resolveSSHConfig(args);
-    const composeManager = new ComposeManager(sshConfig);
+    const composeManager = new ComposeManager(args.profile);
     await composeManager.composeDown({
       volumes: args?.volumes || false,
       removeOrphans: args?.removeOrphans || false,
@@ -550,8 +541,7 @@ export class ContainerTools {
       throw new Error('type parameter is required (images, volumes, or networks)');
     }
 
-    const sshConfig = resolveSSHConfig(args);
-    const containerManager = new ContainerManager(sshConfig);
+    const containerManager = new ContainerManager(args.profile);
 
     let resources;
     switch (args.type) {
@@ -583,9 +573,8 @@ export class ContainerTools {
       throw new Error('service parameter is required');
     }
 
-    const sshConfig = resolveSSHConfig(args);
-    const containerManager = new ContainerManager(sshConfig);
-    const project = await this.getProject(args?.project, sshConfig);
+    const containerManager = new ContainerManager(args.profile);
+    const project = await this.getProject(args?.project, args.profile);
     const stats = await containerManager.getContainerStats(args.service, project.name, project.composeFile, project.projectDir);
 
     return {
@@ -600,11 +589,11 @@ export class ContainerTools {
 
   /**
    * Helper: get project config (auto-detect or explicit)
-   * Uses the same logic as handleComposeConfig - checks SSH config first
+   * Uses the same logic as handleComposeConfig - checks profile first
    */
-  private async getProject(explicitName?: string, sshConfig?: SSHConfig | null) {
-    // If SSH config provided (remote mode), don't use local discovery
-    if (sshConfig) {
+  private async getProject(explicitName?: string, profileName?: string) {
+    // If profile provided (remote mode), don't use local discovery
+    if (profileName) {
       // Remote mode: create minimal project config
       let projectName: string;
       if (explicitName) {

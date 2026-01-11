@@ -5,9 +5,8 @@
 
 import type Docker from 'dockerode';
 import { logger } from '../utils/logger.js';
-import { getDockerClient, DockerClient } from '../utils/docker-client.js';
+import { getDockerClientForProfile, DockerClient } from '../utils/docker-client.js';
 import { retryWithTimeout, createNetworkRetryPredicate } from '../utils/retry.js';
-import type { SSHConfig } from '../utils/ssh-config.js';
 
 export interface ContainerInfo {
   id: string;
@@ -70,9 +69,9 @@ export class ContainerManager {
   private dockerClient: DockerClient; // Keep reference to client for SSH tunnel management
   private isRemote: boolean;
 
-  constructor(sshConfig?: SSHConfig | null) {
-    this.isRemote = !!sshConfig;
-    this.dockerClient = getDockerClient(sshConfig);
+  constructor(profileName?: string) {
+    this.dockerClient = getDockerClientForProfile(profileName);
+    this.isRemote = this.dockerClient.isRemote;
     this.docker = this.dockerClient.getClient();
   }
 

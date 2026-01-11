@@ -14,7 +14,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { logger } from './utils/logger.js';
-import { getDockerClient, cleanupDockerClient, cleanupAllDockerClients } from './utils/docker-client.js';
+import { getDockerClientForProfile, cleanupAllDockerClients } from './utils/docker-client.js';
 import { getAvailableProfiles, getDefaultProfile } from './utils/profile-resolver.js';
 import { workspaceManager } from './utils/workspace.js';
 import { ContainerTools } from './tools/container-tools.js';
@@ -48,7 +48,7 @@ async function main() {
 
   // Docker check (local only at startup, remote connections happen per-tool)
   try {
-    const docker = getDockerClient(null); // Local Docker only
+    const docker = getDockerClientForProfile(); // Local Docker (no profile)
     await docker.ping();
     logger.info('Local Docker connection: OK');
   } catch (error: any) {

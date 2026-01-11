@@ -14,14 +14,12 @@ import { ComposeParser } from '../discovery/compose-parser.js';
 import { ComposeExec } from '../utils/compose-exec.js';
 import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 import { logger } from '../utils/logger.js';
-import type { SSHConfig } from '../utils/ssh-config.js';
 import { readRemoteFile } from '../utils/ssh-exec.js';
-import { resolveSSHConfig } from '../utils/profile-resolver.js';
 import { readRemoteComposeFile, readRemoteComposeContent } from '../utils/remote-compose.js';
 
 export class EnvTools {
   // ❗ АРХИТЕКТУРА: Managers НЕ хранятся в конструкторе
-  // Они создаются при каждом вызове с правильным sshConfig из args.profile
+  // Они создаются при каждом вызове с правильным profileName из args.profile
   private envManager: EnvManager;
   private composeParser: ComposeParser;
 
@@ -153,11 +151,11 @@ export class EnvTools {
 
   /**
    * Get project (helper)
-   * Reads and parses remote docker-compose.yml if SSH config provided
+   * Reads and parses remote docker-compose.yml if profile provided
    */
-  private async getProject(projectName?: string, sshConfig?: SSHConfig | null) {
-    // If SSH config provided (remote mode), read remote compose file
-    if (sshConfig) {
+  private async getProject(projectName?: string, profileName?: string) {
+    // If profile provided (remote mode), read remote compose file
+    if (profileName) {
       let finalProjectName: string;
       if (projectName) {
         finalProjectName = projectName;
@@ -165,6 +163,19 @@ export class EnvTools {
         // Use working directory name as fallback
         const cwd = process.cwd();
         finalProjectName = cwd.split('/').pop() || 'docker-mcp-server';
+      }
+      
+      // Load SSH config from profile
+      const { loadProfileConfig } = await import('../utils/docker-client.js');
+      const sshConfig = loadProfileConfig(profileName);
+      
+      // If profile is local mode, fall through to local discovery
+      if (!sshConfig) {
+        logger.info(`Profile "${profileName}" is in LOCAL mode, using local discovery`);
+        const projectDiscovery = new ProjectDiscovery();
+        return await projectDiscovery.findProject(
+          projectName ? { explicitProjectName: projectName } : {}
+        );
       }
       
       // ✅ FIX BUG-006: Read and parse remote docker-compose.yml
@@ -183,8 +194,7 @@ export class EnvTools {
    * docker_env_list handler
    */
   private async handleEnvList(args: any) {
-    const sshConfig = resolveSSHConfig(args);
-    const project = await this.getProject(args?.project, sshConfig);
+    const project = await this.getProject(args?.project, args.profile);
     
     // If service is specified, load env for specific service
     let env: Record<string, string>;
@@ -261,14 +271,12 @@ export class EnvTools {
    */
   private async handleComposeConfig(args: any) {
     const shouldResolve = args?.resolve === true;
-    const sshConfig = resolveSSHConfig(args);
-    
     
     // Determine project name
     let projectName: string;
     let project;
     
-    if (sshConfig) {
+    if (args.profile) {
       // Remote mode: don't use local discovery
       if (args?.project) {
         projectName = args.project;
@@ -281,7 +289,7 @@ export class EnvTools {
       project = { name: projectName, composeFile: '', projectDir: '', services: {} };
     } else {
       // Local mode: use local discovery
-      project = await this.getProject(args?.project, sshConfig);
+      project = await this.getProject(args?.project, args.profile);
       projectName = project.name;
     }
     
@@ -289,11 +297,18 @@ export class EnvTools {
     let composeContent: string | null = null;
     
     // PRIORITY: If profile is specified, read REMOTE file FIRST
-    if (sshConfig) {
-      // ✅ FIX: Use unified remote compose reader (no duplication)
-      const remoteResult = await readRemoteComposeContent(projectName, sshConfig);
-      composeContent = remoteResult.content;
-      composeFile = remoteResult.filePath;
+    if (args.profile) {
+      // Load SSH config from profile
+      const { loadProfileConfig } = await import('../utils/docker-client.js');
+      const sshConfig = loadProfileConfig(args.profile);
+      
+      // Only read remote if actually remote (not local mode)
+      if (sshConfig) {
+        // ✅ FIX: Use unified remote compose reader (no duplication)
+        const remoteResult = await readRemoteComposeContent(projectName, sshConfig);
+        composeContent = remoteResult.content;
+        composeFile = remoteResult.filePath;
+      }
     } else {
       // Local mode: use local file
       if (!composeFile) {
@@ -379,10 +394,8 @@ export class EnvTools {
    * docker_healthcheck handler
    */
   private async handleHealthcheck(args: any) {
-    // Get SSH config for profile first
-    const sshConfig = resolveSSHConfig(args);
-    const project = await this.getProject(args?.project, sshConfig);
-    const containerManager = new ContainerManager(sshConfig);
+    const project = await this.getProject(args?.project, args.profile);
+    const containerManager = new ContainerManager(args.profile);
     
     // Получить список всех контейнеров
     const containers = await containerManager.listContainers(project.name);

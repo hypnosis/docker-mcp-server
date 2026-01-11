@@ -7,12 +7,10 @@ import { Tool, CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { ContainerManager } from '../managers/container-manager.js';
 import { ProjectDiscovery } from '../discovery/project-discovery.js';
 import { logger } from '../utils/logger.js';
-import type { SSHConfig } from '../utils/ssh-config.js';
-import { resolveSSHConfig } from '../utils/profile-resolver.js';
 
 export class ExecutorTool {
   // ❗ АРХИТЕКТУРА: Managers НЕ хранятся в конструкторе
-  // Они создаются при каждом вызове с правильным sshConfig из args.profile
+  // Они создаются при каждом вызове с правильным profileName из args.profile
   constructor() {
     // No shared state - managers created per request
   }
@@ -75,9 +73,8 @@ export class ExecutorTool {
         throw new Error('service and command parameters are required');
       }
 
-      // Get SSH config for profile
-      const sshConfig = resolveSSHConfig(args);
-      const containerManager = new ContainerManager(sshConfig);
+      // Create container manager with profile
+      const containerManager = new ContainerManager(args.profile);
       const projectDiscovery = new ProjectDiscovery();
 
       const project = await projectDiscovery.findProject(
