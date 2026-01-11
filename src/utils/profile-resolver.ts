@@ -11,8 +11,8 @@
  *   "profiles": {
  *     "local": { "mode": "local" },
  *     "production": {
- *       "host": "109.172.39.241",
- *       "username": "root",
+ *       "host": "prod.example.com",
+ *       "username": "deployer",
  *       "port": 22,
  *       "privateKeyPath": "~/.ssh/id_rsa",
  *       "projectsPath": "/var/www"

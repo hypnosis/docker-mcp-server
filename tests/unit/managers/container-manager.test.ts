@@ -4,13 +4,13 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ContainerManager } from '../../../src/managers/container-manager.js';
-import { getDockerClient } from '../../../src/utils/docker-client.js';
+import { getDockerClientForProfile } from '../../../src/utils/docker-client.js';
 import { createMockDocker, createMockContainerData, createMockContainerWithHealth } from '../mocks/docker-mock.js';
 import type Docker from 'dockerode';
 
 // Mock docker-client
 vi.mock('../../../src/utils/docker-client.js', () => ({
-  getDockerClient: vi.fn(),
+  getDockerClientForProfile: vi.fn(),
 }));
 
 // Mock logger
@@ -30,12 +30,13 @@ describe('ContainerManager', () => {
   beforeEach(() => {
     mockDocker = createMockDocker([]);
     
-    // Mock getDockerClient to return mock docker client
-    vi.mocked(getDockerClient).mockReturnValue({
+    // Mock getDockerClientForProfile to return mock docker client
+    vi.mocked(getDockerClientForProfile).mockReturnValue({
       getClient: () => mockDocker,
       ping: vi.fn().mockResolvedValue(undefined),
       listContainers: vi.fn().mockResolvedValue([]),
       getContainer: vi.fn(),
+      isRemote: false,
     } as any);
 
     manager = new ContainerManager();
@@ -60,13 +61,14 @@ describe('ContainerManager', () => {
       ];
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -82,13 +84,14 @@ describe('ContainerManager', () => {
 
     it('should return empty array when no containers found', async () => {
       mockDocker = createMockDocker([]);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -111,13 +114,14 @@ describe('ContainerManager', () => {
       ];
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -139,13 +143,14 @@ describe('ContainerManager', () => {
       containers[0].name = 'my-project_web_1';
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -165,13 +170,14 @@ describe('ContainerManager', () => {
       containers[0].name = 'my-project_web_1';
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -199,13 +205,14 @@ describe('ContainerManager', () => {
       ];
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -233,13 +240,14 @@ describe('ContainerManager', () => {
       ];
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -253,13 +261,14 @@ describe('ContainerManager', () => {
 
     it('should throw error when container not found', async () => {
       mockDocker = createMockDocker([]);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -279,13 +288,14 @@ describe('ContainerManager', () => {
       ];
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -301,13 +311,14 @@ describe('ContainerManager', () => {
 
     it('should throw error when container not found', async () => {
       mockDocker = createMockDocker([]);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -327,13 +338,14 @@ describe('ContainerManager', () => {
       ];
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -357,13 +369,14 @@ describe('ContainerManager', () => {
       ];
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();
@@ -388,13 +401,14 @@ describe('ContainerManager', () => {
       ];
 
       mockDocker = createMockDocker(containers);
-      vi.mocked(getDockerClient).mockReturnValue({
+      vi.mocked(getDockerClientForProfile).mockReturnValue({
         getClient: () => mockDocker,
         ping: vi.fn().mockResolvedValue(undefined),
         listContainers: vi.fn().mockImplementation(async () => {
           return await mockDocker.listContainers({ all: true });
         }),
         getContainer: vi.fn(),
+        isRemote: false,
       } as any);
 
       manager = new ContainerManager();

@@ -519,6 +519,130 @@ class ComposeManager {
 
 ---
 
+## 🔄 Profile-Based Client Pool (v1.4.0+)
+
+### Problem: Host-Based Caching Bug (BUG-011)
+
+**Before v1.4.0**, Docker clients were cached by SSH host:
+
+```typescript
+// OLD: Cached by host (WRONG!)
+const client = getDockerClient(sshConfig);
+// Cache key: "prod.example.com"
+```
+
+**Bug scenario:**
+```json
+{
+  "profiles": {
+    "prod-admin": { 
+      "host": "prod.example.com",
+      "privateKeyPath": "~/.ssh/admin"
+    },
+    "prod-readonly": { 
+      "host": "prod.example.com", 
+      "privateKeyPath": "~/.ssh/readonly"
+    }
+  }
+}
+```
+
+1. First call: `profile: "prod-admin"` → creates client with admin key ✅
+2. Second call: `profile: "prod-readonly"` → **reuses cached client with admin key!** ❌
+
+**Result:** Read-only profile has admin rights! 🔥
+
+### Solution: Profile-Based Caching
+
+**Since v1.4.0**, clients are cached by profile name:
+
+```typescript
+// NEW: Cached by profile name (CORRECT!)
+const client = getDockerClientForProfile('prod-admin');
+// Cache key: "prod-admin"
+
+const client2 = getDockerClientForProfile('prod-readonly');
+// Cache key: "prod-readonly" (separate client!)
+```
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Profile-Based Client Pool                                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Local Client (no profile):                                │
+│  ┌──────────────────────────────────────┐                  │
+│  │ getDockerClientForProfile()          │                  │
+│  │ Cache key: LOCAL                     │                  │
+│  │ → DockerClient (local Docker socket) │                  │
+│  └──────────────────────────────────────┘                  │
+│                                                             │
+│  Remote Clients (profile-based):                           │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │ Profile: "prod-admin"                              │    │
+│  │ getDockerClientForProfile('prod-admin')            │    │
+│  │ Cache key: "prod-admin"                            │    │
+│  │ → DockerClient (SSH tunnel with admin key)        │    │
+│  └────────────────────────────────────────────────────┘    │
+│                                                             │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │ Profile: "prod-readonly"                           │    │
+│  │ getDockerClientForProfile('prod-readonly')         │    │
+│  │ Cache key: "prod-readonly"                         │    │
+│  │ → DockerClient (SSH tunnel with readonly key)     │    │
+│  └────────────────────────────────────────────────────┘    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Benefits
+
+1. ✅ **Correctness** — Each profile uses its own SSH key
+2. ✅ **Security** — No key conflicts or wrong permissions
+3. ✅ **Performance** — SSH tunnels still cached per profile
+4. ✅ **Explicit** — Profile name makes it clear which config is used
+5. ✅ **Scalability** — Works with N profiles in parallel
+
+### Internal Changes
+
+**Managers (v1.4.0):**
+```typescript
+// OLD (v1.3.x):
+class ContainerManager {
+  constructor(sshConfig?: SSHConfig | null) {
+    this.dockerClient = getDockerClient(sshConfig);
+  }
+}
+
+// NEW (v1.4.0):
+class ContainerManager {
+  constructor(profileName?: string) {
+    this.dockerClient = getDockerClientForProfile(profileName);
+  }
+}
+```
+
+**Tools:**
+```typescript
+// OLD:
+const sshConfig = resolveSSHConfig(args);
+const manager = new ContainerManager(sshConfig);
+
+// NEW:
+const manager = new ContainerManager(args.profile);
+```
+
+### Client Pool Lifecycle
+
+1. **First call** with profile → Load config, create client, cache
+2. **Subsequent calls** with same profile → Return cached client
+3. **Different profile** → Create new client, cache separately
+4. **Cleanup** → `clearClientPool()` cleans up all SSH tunnels
+
+---
+
 ## 📊 Data Flow
 
 ### Example: docker_db_query("postgres", "SELECT * FROM users")

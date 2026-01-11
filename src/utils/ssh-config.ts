@@ -97,9 +97,13 @@ export function validateSSHConfig(config: Partial<SSHConfig>): string[] {
     }
   }
 
-  // Если не указан ни ключ, ни пароль - это предупреждение (но не ошибка)
+  // Если не указан ни ключ, ни пароль - предупреждение
   if (!config.privateKeyPath && !config.password) {
-    logger.warn('SSH config: neither privateKeyPath nor password specified. Authentication may fail.');
+    logger.warn(
+      'SSH config: neither privateKeyPath nor password specified. ' +
+      'Will use SSH Agent or default keys (~/.ssh/id_rsa, ~/.ssh/id_ed25519). ' +
+      'For explicit authentication, add "privateKeyPath" or "password" to your config.'
+    );
   }
 
   return errors;

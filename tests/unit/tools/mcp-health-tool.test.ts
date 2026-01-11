@@ -14,7 +14,7 @@ vi.mock('../../../src/utils/cache.js');
 vi.mock('../../../src/utils/logger.js');
 
 // Import mocked modules AFTER vi.mock
-const { getDockerClient } = await import('../../../src/utils/docker-client.js');
+const { getDockerClientForProfile } = await import('../../../src/utils/docker-client.js');
 const { ProjectDiscovery } = await import('../../../src/discovery/project-discovery.js');
 const { adapterRegistry } = await import('../../../src/adapters/adapter-registry.js');
 const { projectConfigCache } = await import('../../../src/utils/cache.js');
@@ -29,7 +29,7 @@ describe('MCPHealthTool', () => {
     
     // Setup Docker mock
     mockDockerPing = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getDockerClient).mockReturnValue({
+    vi.mocked(getDockerClientForProfile).mockReturnValue({
       ping: mockDockerPing,
     } as any);
 

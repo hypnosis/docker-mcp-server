@@ -1,19 +1,107 @@
-# 🐛 Баги: Неправильное применение SSH профилей в тулзах
+# 🐛 Баги: SSH Профили и Docker Client Pool
+
+**Дата создания:** 2025-01-XX  
+**Последнее обновление:** 2026-01-12  
+**Статус:** 🟡 ЧАСТИЧНО ИСПРАВЛЕНО
+
+---
+
+## 🆕 BUG-011: Docker Client кэшируется по host, а не по профилю (2026-01-12)
+
+**Дата обнаружения:** 2026-01-12  
+**Статус:** 🔴 КРИТИЧЕСКИЙ (Security + Correctness)  
+**Приоритет:** HIGH  
+**Версия:** 1.3.2
+
+### Описание
+
+`getDockerClient(sshConfig)` кэширует клиенты по `host`, игнорируя `privateKeyPath`. Два профиля с одним хостом, но разными SSH ключами используют ОДИН клиент.
+
+### Воспроизведение
+
+```json
+// ~/.cursor/docker-profiles.json
+{
+  "profiles": {
+    "prod-admin": {
+      "host": "prod.example.com",
+      "privateKeyPath": "~/.ssh/id_rsa_admin"
+    },
+    "prod-readonly": {
+      "host": "prod.example.com",
+      "privateKeyPath": "~/.ssh/id_rsa_readonly"  // ← Другой ключ!
+    }
+  }
+}
+```
+
+```typescript
+// 1. Первый вызов
+docker_container_list({ profile: "prod-admin" })
+// → Создает туннель с ключом id_rsa_admin ✅
+// → Кэшируется: key="prod.example.com", value=DockerClient
+
+// 2. Второй вызов
+docker_container_list({ profile: "prod-readonly" })
+// → Находит в кэше по host="prod.example.com"
+// → Возвращает СТАРЫЙ клиент (с ключом admin)! ❌
+// → Строгая проверка SSH ключа НЕ срабатывает
+// → Результат: "No containers found" (вместо ошибки)
+```
+
+### Корень проблемы
+
+```typescript
+// src/utils/docker-client.ts:471-475
+const shouldRecreate = !dockerClientInstance || 
+  (sshConfig !== undefined && (
+    dockerClientInstance.isRemote !== requestedIsRemote ||
+    dockerClientInstance.getSSHHost() !== requestedHost  // ← ТОЛЬКО HOST!
+  ));
+```
+
+**НЕ сравнивает:**
+- ❌ `privateKeyPath`
+- ❌ `username`
+- ❌ `port`
+
+### Последствия
+
+1. **Security issue** — неправильный SSH ключ может дать больше прав
+2. **Строгая проверка не работает** — баг обходит строгую проверку из v1.3.2
+3. **Непредсказуемое поведение** — зависит от порядка вызовов
+4. **Сложно дебажить** — непонятно, какой ключ используется
+
+### Решение
+
+**Рефакторинг:** Мигрировать на `getDockerClientForProfile(profileName)`
+
+- Кэш по имени профиля (не по host)
+- Каждый профиль = уникальный клиент
+- Строгая проверка работает корректно
+
+**План:** См. [REFACTORING_PROFILE_CLIENT_POOL.md](./REFACTORING_PROFILE_CLIENT_POOL.md)
+
+**Версия исправления:** 1.4.0 (planned)
+
+---
+
+## 🔴 BUG-003: Неправильное применение SSH профилей в тулзах (ИСПРАВЛЕНО)
 
 **Дата обнаружения:** 2025-01-XX  
-**Статус:** 🔴 КРИТИЧЕСКИЙ  
-**Приоритет:** Высокий
+**Статус:** ✅ ИСПРАВЛЕНО (v1.3.0)  
+**Приоритет:** Высокий (был)
 
 ## Описание проблемы
 
-Тулзы не корректно применяют SSH профили для подключения к remote Docker серверам. При указании `profile: "zaicylab"` команды выполняются на локальном Docker, а не на remote сервере через SSH.
+Тулзы не корректно применяют SSH профили для подключения к remote Docker серверам. При указании `profile: "prod"` команды выполняются на локальном Docker, а не на remote сервере через SSH.
 
 ## Воспроизведение
 
 1. Подключение к remote серверу через профиль:
    ```typescript
-   docker_projects({ profile: "zaicylab" })
-   docker_container_list({ project: "gobunnygo", profile: "zaicylab" })
+   docker_projects({ profile: "prod" })
+   docker_container_list({ project: "example-project", profile: "prod" })
    ```
 
 2. **Ожидаемое поведение:** Команды выполняются на remote сервере через SSH туннель
@@ -43,17 +131,17 @@
 
 2. **docker_env_list**:
    ```
-   Error: Service 'gobunnygo-dev' not found in project 'docker-mcp-server'. 
+   Error: Service 'example-service-dev' not found in project 'docker-mcp-server'. 
    Available services: web, postgres, redis
    ```
-   Ищет сервис в неправильном проекте (`docker-mcp-server` вместо `gobunnygo`)
+   Ищет сервис в неправильном проекте (`docker-mcp-server` вместо `example-project`)
 
 3. **docker_healthcheck**:
    ```
    {
      "overall": "healthy",
      "services": [
-       { "name": "web", ... },      // ← Это не из gobunnygo!
+       { "name": "web", ... },      // ← Это не из example-project!
        { "name": "postgres", ... },
        { "name": "redis", ... }
      ]
@@ -63,7 +151,7 @@
 
 4. **docker_db_query**:
    ```
-   Error: Service 'gobunnygo-dev' not found in project
+   Error: Service 'example-service-dev' not found in project
    ```
 
 ## Возможные причины
@@ -135,9 +223,9 @@
 
 ## Тестирование после исправления
 
-1. ✅ `docker_projects({ profile: "zaicylab" })` - должен показать remote проекты
-2. ✅ `docker_container_list({ project: "gobunnygo", profile: "zaicylab" })` - должен показать remote контейнеры
-3. ✅ `docker_compose_config({ project: "gobunnygo", profile: "zaicylab" })` - должен показать полный config
-4. ✅ `docker_env_list({ project: "gobunnygo", profile: "zaicylab" })` - должен показать env переменные remote проекта
-5. ✅ `docker_healthcheck({ project: "gobunnygo", profile: "zaicylab" })` - должен проверить remote сервисы
-6. ✅ `docker_db_query({ service: "...", profile: "zaicylab", query: "..." })` - должен выполнить запрос к remote БД
+1. ✅ `docker_projects({ profile: "prod" })` - должен показать remote проекты
+2. ✅ `docker_container_list({ project: "example-project", profile: "prod" })` - должен показать remote контейнеры
+3. ✅ `docker_compose_config({ project: "example-project", profile: "prod" })` - должен показать полный config
+4. ✅ `docker_env_list({ project: "example-project", profile: "prod" })` - должен показать env переменные remote проекта
+5. ✅ `docker_healthcheck({ project: "example-project", profile: "prod" })` - должен проверить remote сервисы
+6. ✅ `docker_db_query({ service: "...", profile: "prod", query: "..." })` - должен выполнить запрос к remote БД

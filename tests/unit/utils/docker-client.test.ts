@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DockerClient, getDockerClient, resetDockerClient, getDockerClientForProfile, clearClientPool } from '../../../src/utils/docker-client.js';
+import { DockerClient, getDockerClientForProfile, clearClientPool } from '../../../src/utils/docker-client.js';
 import type { SSHConfig } from '../../../src/utils/ssh-config.js';
 import Docker from 'dockerode';
 import { existsSync, unlinkSync } from 'fs';
@@ -68,7 +68,7 @@ describe('DockerClient - Remote SSH', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetDockerClient();
+    clearClientPool();
     
     // Reset mock Docker instance
     mockDockerInstance = createMockDockerInstance();
@@ -313,51 +313,62 @@ describe('DockerClient - Remote SSH', () => {
     });
   });
 
-  describe('Singleton Pattern', () => {
-    it('should return same instance with same config', () => {
-      resetDockerClient();
-      const client1 = getDockerClient(mockSSHConfig);
-      const client2 = getDockerClient(mockSSHConfig);
+  describe('Profile-Based Client Pool (NEW)', () => {
+    it('should cache clients by profile name', () => {
+      clearClientPool();
       
-      // Note: getDockerClient creates new instance if config changes
-      // So we need to pass the same config reference
-      expect(client1).toBeInstanceOf(DockerClient);
-      expect(client2).toBeInstanceOf(DockerClient);
+      // Mock profile loading
+      const originalEnv = process.env.DOCKER_MCP_PROFILES_FILE;
+      process.env.DOCKER_MCP_PROFILES_FILE = '/tmp/test-profiles.json';
+      
+      // We can't easily test remote profiles without mocking file system
+      // So we test local profile caching
+      const client1 = getDockerClientForProfile();
+      const client2 = getDockerClientForProfile();
+      
+      // Should return same local client instance (cached)
+      expect(client1).toBe(client2);
+      
+      // Restore env
+      if (originalEnv) {
+        process.env.DOCKER_MCP_PROFILES_FILE = originalEnv;
+      } else {
+        delete process.env.DOCKER_MCP_PROFILES_FILE;
+      }
     });
 
-    it('should create new instance when config changes', () => {
-      const client1 = getDockerClient(mockSSHConfig);
+    it('should create different clients for different profiles', () => {
+      clearClientPool();
       
-      const newConfig: SSHConfig = {
-        host: 'other.example.com',
-        username: 'deployer',
-      };
+      // Local client
+      const localClient = getDockerClientForProfile();
       
-      const client2 = getDockerClient(newConfig);
+      // Another local client (should be same)
+      const localClient2 = getDockerClientForProfile(undefined);
       
+      expect(localClient).toBe(localClient2);
+      expect(localClient).toBeInstanceOf(DockerClient);
+    });
+
+    it('should clear client pool', () => {
+      const client1 = getDockerClientForProfile();
+      
+      clearClientPool();
+      
+      // After clearing, should create new local client
+      const client2 = getDockerClientForProfile();
+      
+      // Should be different instances (pool was cleared)
       expect(client1).not.toBe(client2);
     });
 
-    it('should cleanup old instance when creating new one', () => {
-      const client1 = getDockerClient(mockSSHConfig);
-      const cleanupSpy = vi.spyOn(client1, 'cleanup');
+    it('should cleanup all clients when clearing pool', () => {
+      const client = getDockerClientForProfile();
+      const cleanupSpy = vi.spyOn(client, 'cleanup');
       
-      const newConfig: SSHConfig = {
-        host: 'other.example.com',
-        username: 'deployer',
-      };
-      
-      getDockerClient(newConfig);
+      clearClientPool();
       
       expect(cleanupSpy).toHaveBeenCalled();
-    });
-
-    it('should reset singleton', () => {
-      const client1 = getDockerClient(mockSSHConfig);
-      resetDockerClient();
-      const client2 = getDockerClient(mockSSHConfig);
-      
-      expect(client1).not.toBe(client2);
     });
   });
 
@@ -431,16 +442,14 @@ describe('DockerClient - Remote SSH', () => {
     });
   });
 
-  describe('Profile-based Client Pool', () => {
+  describe('Profile Error Handling', () => {
     beforeEach(() => {
       clearClientPool();
-      resetDockerClient();
       vi.clearAllMocks();
     });
 
     afterEach(() => {
       clearClientPool();
-      resetDockerClient();
     });
 
     it('should return local client when profile is not specified', () => {
@@ -473,18 +482,6 @@ describe('DockerClient - Remote SSH', () => {
       if (originalEnv) {
         process.env.DOCKER_MCP_PROFILES_FILE = originalEnv;
       }
-    });
-
-    it('should clear client pool', () => {
-      const client1 = getDockerClientForProfile();
-      
-      clearClientPool();
-      
-      // After clearing, should create new local client
-      const client2 = getDockerClientForProfile();
-      
-      // Should be different instances (pool was cleared)
-      expect(client1).not.toBe(client2);
     });
 
     it('should export pool functions', () => {

@@ -7,6 +7,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-01-12
+
+### Changed
+
+#### 🏗️ Architecture - Profile-Based Docker Client Pool
+
+- **Bug Fix (BUG-011)**: Fixed critical SSH client caching bug
+  - **Problem**: Two profiles with same `host` but different SSH keys used ONE cached client
+  - **Impact**: Wrong SSH key could be used, bypassing strict validation (v1.3.2)
+  - **Solution**: Cache Docker clients by profile name instead of host
+  - Each profile now guaranteed to use its own SSH client and key
+  - Tunnels properly reused per profile, not per host
+
+- **Internal Refactoring**: Migrated from host-based to profile-based client pool
+  - Old: `getDockerClient(sshConfig)` — cached by host (bug)
+  - New: `getDockerClientForProfile(profileName)` — cached by profile name (correct)
+  - Managers now accept `profileName` instead of `sshConfig` in constructors
+  - **No breaking changes for MCP tools users** — MCP API unchanged
+
+#### Migration Guide
+
+**For MCP users**: No changes required ✅
+
+**For developers** (if using managers directly in custom code):
+
+```typescript
+// OLD (v1.3.x):
+const sshConfig = resolveSSHConfig({ profile: 'prod' });
+const manager = new ContainerManager(sshConfig);
+
+// NEW (v1.4.0):
+const manager = new ContainerManager('prod');
+```
+
+#### Technical Details
+
+**Files changed:**
+- `src/managers/container-manager.ts` — constructor accepts `profileName?`
+- `src/managers/compose-manager.ts` — constructor accepts `profileName?`
+- `src/utils/docker-client.ts` — removed old singleton, added profile pool
+- `src/tools/*-tools.ts` — use `args.profile` directly
+- `tests/unit/**/*.test.ts` — updated to new API
+
+**Bug scenario (fixed):**
+```json
+{
+  "profiles": {
+    "prod-admin": { "host": "prod.com", "privateKeyPath": "~/.ssh/admin" },
+    "prod-readonly": { "host": "prod.com", "privateKeyPath": "~/.ssh/readonly" }
+  }
+}
+```
+
+- Before: Both profiles used same cached client (first key wins) ❌
+- After: Each profile has its own client ✅
+
+---
+
+## [1.3.2] - 2026-01-11
+
+### Changed
+
+#### 🔒 Security & Reliability - Strict SSH Key Validation
+
+- **SSH Private Key Validation** — Strict validation for SSH private keys (fail-fast approach)
+  - **Breaking Change**: If `privateKeyPath` is specified in profile, the file MUST exist
+  - Previously: Silent fallback to SSH Agent / default keys if key not found (confusing behavior)
+  - Now: Explicit error with actionable solutions if key file missing
+  - Benefits:
+    - ✅ Explicit authentication — you know exactly which key is used
+    - ✅ Fail-fast — immediate error instead of silent fallback
+    - ✅ Security — prevents accidental use of wrong SSH keys
+    - ✅ Debuggability — clear error messages with solutions
+  
+- **SSH Agent Support** — Improved support for SSH Agent and default keys
+  - If `privateKeyPath` NOT specified → uses SSH Agent or default keys (~/.ssh/id_rsa, ~/.ssh/id_ed25519)
+  - Clear warning message when using SSH Agent / default keys
+  - Explicit about authentication method being used
+
+- **Legacy Fallback Mode** — Optional fallback via environment variable
+  - Set `DOCKER_MCP_ALLOW_SSH_FALLBACK=true` to enable legacy behavior (not recommended)
+  - Allows connection when key file missing (uses SSH Agent / default keys as fallback)
+  - Warning message displayed when fallback is used
+
+#### Migration Guide
+
+If your connection breaks after upgrade:
+
+**Option 1: Fix the path** (Recommended)
+```json
+{
+  "privateKeyPath": "~/.ssh/id_ed25519_correct"  // Use correct path
+}
+```
+
+**Option 2: Use SSH Agent**
+```json
+{
+  "host": "...",
+  "username": "...",
+  // Remove privateKeyPath to use SSH Agent / default keys
+}
+```
+
+**Option 3: Enable legacy fallback** (Temporary fix)
+```bash
+export DOCKER_MCP_ALLOW_SSH_FALLBACK=true
+```
+
+---
+
 ## [1.3.1] - 2026-01-10
 
 ### Fixed

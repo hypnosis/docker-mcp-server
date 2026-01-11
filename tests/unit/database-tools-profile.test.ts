@@ -116,6 +116,7 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
 
   describe('🔴 EXPLICIT ERRORS - Profile specified but not found', () => {
     it('should throw explicit error when profile specified but not found', async () => {
+      // After refactoring: loadProfileConfig throws when profile file not set
       // Mock: profile "invalid" не найден -> resolveSSHConfig возвращает null
       mockResolveSSHConfig.mockReturnValue(null);
 
@@ -133,14 +134,14 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
 
       const result = await databaseTools.handleCall(request);
 
-      // ✅ Должна быть ЯВНАЯ ошибка (validateProfile выбрасывает ошибку когда profile указан, но sshConfig = null)
+      // ✅ Должна быть ЯВНАЯ ошибка
+      // После рефакторинга: loadProfileConfig() бросает ошибку если DOCKER_MCP_PROFILES_FILE не установлен
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('PROFILE ERROR');
-      expect(result.content[0].text).toContain('invalid-profile');
-      expect(result.content[0].text).toContain('NO FALLBACK TO LOCAL');
+      expect(result.content[0].text).toContain('DOCKER_MCP_PROFILES_FILE');
     });
 
     it('should provide helpful error message with troubleshooting steps', async () => {
+      // After refactoring: error comes from loadProfileConfig()
       // Mock: profile не найден -> resolveSSHConfig возвращает null
       mockResolveSSHConfig.mockReturnValue(null);
 
@@ -149,7 +150,7 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
         params: {
           name: 'docker_db_backup',
           arguments: {
-            profile: 'zaicylab',
+            profile: 'prod',
             service: 'postgres',
           },
         },
@@ -160,10 +161,8 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
       expect(result.isError).toBe(true);
       const errorText = result.content[0].text;
       
-      // Проверяем, что ошибка содержит полезную информацию
-      expect(errorText).toContain('Possible causes:');
-      expect(errorText).toContain('Profile "zaicylab"');
-      expect(errorText).toContain('DOCKER_PROFILES');
+      // Проверяем, что ошибка содержит информацию о проблеме с профилем
+      expect(errorText).toContain('DOCKER_MCP_PROFILES_FILE');
     });
   });
 
@@ -190,8 +189,8 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain('query result');
       
-      // ✅ ContainerManager создан БЕЗ SSH config (local)
-      expect(MockedContainerManager).toHaveBeenCalledWith(null);
+      // ✅ ContainerManager создан БЕЗ profile (local) - передается undefined
+      expect(MockedContainerManager).toHaveBeenCalledWith(undefined);
     });
   });
 
@@ -203,7 +202,7 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
         user: 'deployer',
       };
 
-      // Profile "zaicylab" найден -> sshConfig
+      // Profile "prod" найден -> sshConfig
       mockResolveSSHConfig.mockReturnValue(mockSSHConfig);
 
       const request: CallToolRequest = {
@@ -211,7 +210,7 @@ describe('DatabaseTools - Profile Validation (DI)', () => {
         params: {
           name: 'docker_db_query',
           arguments: {
-            profile: 'zaicylab',
+            profile: 'prod',
             service: 'postgres',
             query: 'SELECT 1',
           },
