@@ -47,12 +47,24 @@ async function main() {
   logger.info(`Loaded ${profiles.length} profiles from DOCKER_PROFILES (default: ${defaultProfile})`);
 
   // Docker check (local only at startup, remote connections happen per-tool)
+  logger.info('🔍 Checking Docker connection...');
   try {
     const docker = getDockerClientForProfile(); // Local Docker (no profile)
     await docker.ping();
-    logger.info('Local Docker connection: OK');
+    logger.info('✅ Docker connection: OK');
   } catch (error: any) {
-    logger.error('Local Docker check failed:', error);
+    logger.error('');
+    logger.error('❌ CRITICAL ERROR: Docker Desktop is NOT running!');
+    logger.error('');
+    logger.error('⚠️  MCP Server cannot start without Docker');
+    logger.error('');
+    logger.error('Action required:');
+    logger.error('  1. Start Docker Desktop');
+    logger.error('  2. Wait for Docker to be ready (whale icon in system tray)');
+    logger.error('  3. Restart MCP Server');
+    logger.error('');
+    logger.error(`Details: ${error.message || error}`);
+    logger.error('');
     process.exit(1);
   }
 
