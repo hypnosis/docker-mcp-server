@@ -4,20 +4,54 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DockerClient, clearClientPool } from '../../src/utils/docker-client.js';
-import { ContainerManager } from '../../src/managers/container-manager.js';
 import type { SSHConfig } from '../../src/utils/ssh-config.js';
 import Docker from 'dockerode';
-import { existsSync, unlinkSync } from 'fs';
+import { existsSync, unlinkSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { spawn } from 'child_process';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
-// Mock fs module
+// NOTE: We intentionally avoid static imports of modules-under-test here.
+// Vitest reuses module cache across test files within the same worker.
+// If another test imports docker-client BEFORE our vi.mock(...) declarations,
+// our mocks won't apply and tests become flaky (timeouts, real fs/spawn, etc).
+let DockerClient: typeof import('../../src/utils/docker-client.js').DockerClient;
+let clearClientPool: typeof import('../../src/utils/docker-client.js').clearClientPool;
+let ContainerManager: typeof import('../../src/managers/container-manager.js').ContainerManager;
+
+// Mock fs module - use real existsSync for profile files, mock for sockets
 vi.mock('fs', async () => {
-  const actual = await vi.importActual('fs');
+  const actual = await vi.importActual<typeof import('fs')>('fs');
+  const realExistsSync = actual.existsSync;
+  const realUnlinkSync = actual.unlinkSync;
+  const realWriteFileSync = actual.writeFileSync;
+  const realMkdirSync = actual.mkdirSync;
+  
   return {
     ...actual,
-    existsSync: vi.fn(),
-    unlinkSync: vi.fn(),
+    // Use real functions for file creation
+    writeFileSync: realWriteFileSync,
+    mkdirSync: realMkdirSync,
+    unlinkSync: vi.fn(realUnlinkSync),
+    // Mock existsSync with smart logic
+    existsSync: vi.fn((path: Parameters<typeof realExistsSync>[0]) => {
+      if (typeof path === 'string') {
+        // Use REAL existsSync for profile files (JSON)
+        if (path.endsWith('.json') || path.includes('profiles')) {
+          return realExistsSync(path);
+        }
+        // Mock: SSH keys exist (for testing)
+        if (path.includes('id_rsa') || path.includes('id_ed25519')) {
+          return true;
+        }
+        // Mock: SSH sockets don't exist initially
+        if (path.includes('docker-ssh-')) {
+          return false;
+        }
+      }
+      // Default: use real existsSync
+      return realExistsSync(path);
+    }),
   };
 });
 
@@ -91,20 +125,54 @@ vi.mock('dockerode', () => {
 describe('Remote Docker Integration', () => {
   let mockSSHConfig: SSHConfig;
   let originalPlatform: string;
+  let testDir: string;
+  let testProfilesFile: string;
+  let originalProfilesFile: string | undefined;
+  const TEST_PROFILE_NAME = 'example-remote-profile';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
+
+    // (re)import modules-under-test AFTER mocks are set up
+    ({ DockerClient, clearClientPool } = await import('../../src/utils/docker-client.js'));
+    ({ ContainerManager } = await import('../../src/managers/container-manager.js'));
+
     clearClientPool();
     
     // Reset mock Docker instance
     mockDockerInstance = createMockDockerInstance();
     
     mockSSHConfig = {
-      host: 'remote.example.com',
-      username: 'deployer',
+      host: 'prod.example.com',
+      username: 'prod-admin',
       port: 22,
-      privateKeyPath: '/path/to/id_rsa',
+      privateKeyPath: '~/.ssh/id_ed25519_example',
     };
+
+    // Create temporary profiles file
+    testDir = mkdtempSync(join(tmpdir(), 'docker-mcp-integration-test-'));
+    mkdirSync(testDir, { recursive: true }); // keep for clarity; mkdtempSync already creates it
+    testProfilesFile = join(testDir, 'profiles.json');
+    
+    // Create test profile
+    const profiles = {
+      default: TEST_PROFILE_NAME,
+      profiles: {
+        [TEST_PROFILE_NAME]: {
+          host: mockSSHConfig.host,
+          username: mockSSHConfig.username,
+          port: mockSSHConfig.port,
+          privateKeyPath: mockSSHConfig.privateKeyPath,
+        },
+      },
+    };
+    
+    writeFileSync(testProfilesFile, JSON.stringify(profiles, null, 2));
+    
+    // Set DOCKER_MCP_PROFILES_FILE environment variable
+    originalProfilesFile = process.env.DOCKER_MCP_PROFILES_FILE;
+    process.env.DOCKER_MCP_PROFILES_FILE = testProfilesFile;
 
     originalPlatform = process.platform;
     Object.defineProperty(process, 'platform', {
@@ -112,15 +180,23 @@ describe('Remote Docker Integration', () => {
       writable: true,
     });
 
-    // Mock socket doesn't exist initially
-    vi.mocked(existsSync).mockReturnValue(false);
+    // Global mock already handles:
+    // - Real existsSync for JSON/profiles
+    // - Mock SSH keys exist
+    // - Mock sockets don't exist
+    // No need to override mockImplementation here
     
     // Mock spawn for SSH tunnel
     const mockSpawn = {
       pid: 12345,
       stdout: { on: vi.fn() },
       stderr: { on: vi.fn() },
-      on: vi.fn(),
+      on: vi.fn((event, handler) => {
+        if (event === 'error') {
+          setTimeout(() => handler(new Error('SSH connection failed')), 10);
+        }
+        return mockSpawn;
+      }),
       unref: vi.fn(),
     };
     vi.mocked(spawn).mockReturnValue(mockSpawn as any);
@@ -131,25 +207,59 @@ describe('Remote Docker Integration', () => {
       value: originalPlatform,
       writable: true,
     });
+    
+    // Restore DOCKER_MCP_PROFILES_FILE
+    if (originalProfilesFile) {
+      process.env.DOCKER_MCP_PROFILES_FILE = originalProfilesFile;
+    } else {
+      delete process.env.DOCKER_MCP_PROFILES_FILE;
+    }
+    
+    // Cleanup temporary profiles file
+    try {
+      if (existsSync(testProfilesFile)) {
+        unlinkSync(testProfilesFile);
+      }
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
   });
 
   describe('DockerClient + ContainerManager Integration', () => {
     it('should initialize ContainerManager with remote DockerClient', () => {
       const dockerClient = new DockerClient(mockSSHConfig);
-      const containerManager = new ContainerManager(mockSSHConfig);
+      const containerManager = new ContainerManager(TEST_PROFILE_NAME);
 
       expect(containerManager).toBeInstanceOf(ContainerManager);
       expect(dockerClient).toBeInstanceOf(DockerClient);
     });
 
     it('should list containers through remote connection', async () => {
-      // Mock socket exists and is alive
-      vi.mocked(existsSync).mockReturnValueOnce(true);
+      // Mock socket exists and is alive - use mockImplementationOnce to not break profile loading
+      vi.mocked(existsSync).mockImplementation((path: any) => {
+        if (typeof path === 'string') {
+          // Profile files - use real check
+          if (path.endsWith('.json') || path.includes('profiles')) {
+            const fs = require('node:fs');
+            return fs.existsSync(path);
+          }
+          // Socket exists (for this test)
+          if (path.includes('docker-ssh-')) {
+            return true;
+          }
+          // SSH key exists
+          if (path.includes('id_rsa') || path.includes('id_ed25519')) {
+            return true;
+          }
+        }
+        return false;
+      });
       
       // Mock Docker ping
       vi.mocked(mockDockerInstance.ping).mockResolvedValue(undefined);
       
-      const containerManager = new ContainerManager(mockSSHConfig);
+      const containerManager = new ContainerManager(TEST_PROFILE_NAME);
       
       // This will attempt to use remote Docker
       // In real scenario, it would create tunnel first
@@ -205,8 +315,21 @@ describe('Remote Docker Integration', () => {
     it('should create tunnel on first remote operation', async () => {
       const dockerClient = new DockerClient(mockSSHConfig);
       
-      // Mock socket doesn't exist
-      vi.mocked(existsSync).mockReturnValueOnce(false);
+      // IMPORTANT: createSSHTunnel() waits up to 10s for socket creation.
+      // In tests we simulate: first check -> no socket, after spawn -> socket appears.
+      const realFs = await import('node:fs');
+      const socketSeen: Record<string, number> = {};
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        if (typeof p === 'string') {
+          if (p.endsWith('.json') || p.includes('profiles')) return realFs.existsSync(p);
+          if (p.includes('id_rsa') || p.includes('id_ed25519')) return true;
+          if (p.includes('docker-ssh-')) {
+            socketSeen[p] = (socketSeen[p] ?? 0) + 1;
+            return socketSeen[p] >= 2;
+          }
+        }
+        return false;
+      });
       
       // Mock spawn
       const mockSpawn = {
@@ -218,21 +341,25 @@ describe('Remote Docker Integration', () => {
       };
       vi.mocked(spawn).mockReturnValue(mockSpawn as any);
       
-      try {
-        await dockerClient.ping();
-      } catch {
-        // Expected - verify spawn was called
-        expect(spawn).toHaveBeenCalled();
-        expect(vi.mocked(spawn).mock.calls[0][0]).toBe('ssh');
-      }
+      await dockerClient.ping();
+
+      expect(spawn).toHaveBeenCalled();
+      expect(vi.mocked(spawn).mock.calls[0][0]).toBe('ssh');
     });
 
     it('should reuse existing tunnel if socket is alive', async () => {
       const dockerClient = new DockerClient(mockSSHConfig);
-      const socketPath = '/tmp/docker-ssh-remote.example.com-22.sock';
       
       // Mock socket exists and is alive
-      vi.mocked(existsSync).mockReturnValueOnce(true);
+      const realFs = await import('node:fs');
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        if (typeof p === 'string') {
+          if (p.endsWith('.json') || p.includes('profiles')) return realFs.existsSync(p);
+          if (p.includes('id_rsa') || p.includes('id_ed25519')) return true;
+          if (p.includes('docker-ssh-')) return true;
+        }
+        return false;
+      });
       
       // Mock Docker ping succeeds
       vi.mocked(mockDockerInstance.ping).mockResolvedValue(undefined);
