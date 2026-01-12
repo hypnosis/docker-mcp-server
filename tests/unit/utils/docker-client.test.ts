@@ -127,22 +127,46 @@ describe('DockerClient - Remote SSH', () => {
     it('should create SSH tunnel before ping in remote mode', async () => {
       const client = new DockerClient(mockSSHConfig);
       
-      // Mock socket exists and is alive
-      vi.mocked(existsSync).mockReturnValueOnce(false); // Socket doesn't exist initially
+      // Mock existsSync: false for socket (needs creation), true for SSH key (exists)
+      vi.mocked(existsSync).mockImplementation((path: string) => {
+        // Socket path (contains tmpdir and docker-ssh-)
+        if (typeof path === 'string' && path.includes('docker-ssh-')) {
+          return false; // Socket doesn't exist initially
+        }
+        // SSH key path
+        if (typeof path === 'string' && path.includes('/path/to/id_rsa')) {
+          return true; // Key exists
+        }
+        return false;
+      });
       
       // Mock spawn for SSH tunnel creation
       const mockSpawn = {
         pid: 12345,
         stdout: { on: vi.fn() },
         stderr: { on: vi.fn() },
-        on: vi.fn(),
+        on: vi.fn((event, handler) => {
+          if (event === 'error') {
+            // Simulate error after spawn (expected in test)
+            setTimeout(() => handler(new Error('SSH connection failed')), 10);
+          }
+          return mockSpawn;
+        }),
         unref: vi.fn(),
       };
       vi.mocked(spawn).mockReturnValue(mockSpawn as any);
       
-      // Mock socket creation after delay
+      // Mock socket creation after delay (for socket check in createSSHTunnel)
       setTimeout(() => {
-        vi.mocked(existsSync).mockReturnValueOnce(true);
+        vi.mocked(existsSync).mockImplementation((path: string) => {
+          if (typeof path === 'string' && path.includes('docker-ssh-')) {
+            return true; // Socket created
+          }
+          if (typeof path === 'string' && path.includes('/path/to/id_rsa')) {
+            return true; // Key exists
+          }
+          return false;
+        });
       }, 100);
       
       // Mock Docker ping
@@ -182,22 +206,46 @@ describe('DockerClient - Remote SSH', () => {
     it('should create SSH tunnel before listing containers', async () => {
       const client = new DockerClient(mockSSHConfig);
       
-      // Mock socket doesn't exist
-      vi.mocked(existsSync).mockReturnValueOnce(false);
+      // Mock existsSync: false for socket (needs creation), true for SSH key (exists)
+      vi.mocked(existsSync).mockImplementation((path: string) => {
+        // Socket path (contains tmpdir and docker-ssh-)
+        if (typeof path === 'string' && path.includes('docker-ssh-')) {
+          return false; // Socket doesn't exist initially
+        }
+        // SSH key path
+        if (typeof path === 'string' && path.includes('/path/to/id_rsa')) {
+          return true; // Key exists
+        }
+        return false;
+      });
       
       // Mock spawn
       const mockSpawn = {
         pid: 12345,
         stdout: { on: vi.fn() },
         stderr: { on: vi.fn() },
-        on: vi.fn(),
+        on: vi.fn((event, handler) => {
+          if (event === 'error') {
+            // Simulate error after spawn (expected in test)
+            setTimeout(() => handler(new Error('SSH connection failed')), 10);
+          }
+          return mockSpawn;
+        }),
         unref: vi.fn(),
       };
       vi.mocked(spawn).mockReturnValue(mockSpawn as any);
       
-      // Mock socket creation after delay
+      // Mock socket creation after delay (for socket check in createSSHTunnel)
       setTimeout(() => {
-        vi.mocked(existsSync).mockReturnValueOnce(true);
+        vi.mocked(existsSync).mockImplementation((path: string) => {
+          if (typeof path === 'string' && path.includes('docker-ssh-')) {
+            return true; // Socket created
+          }
+          if (typeof path === 'string' && path.includes('/path/to/id_rsa')) {
+            return true; // Key exists
+          }
+          return false;
+        });
       }, 100);
       
       try {
