@@ -3,7 +3,7 @@
  * Global setup/teardown для имитации CI (GitHub Actions)
  */
 
-import { getDockerClient } from '../../src/utils/docker-client.js';
+import { getDockerClientForProfile } from '../../src/utils/docker-client.js';
 import { spawnSync, execSync } from 'child_process';
 import { resolve } from 'path';
 
@@ -90,7 +90,7 @@ export async function globalSetupE2E() {
   console.log('🔧 E2E Setup: Starting test containers (CI mode)...');
   
   // Verify Docker is running
-  const docker = getDockerClient();
+  const docker = getDockerClientForProfile(); // Local Docker
   try {
     await docker.ping();
     console.log('✓ Docker is running');
@@ -177,7 +177,7 @@ export async function globalTeardownE2E() {
  * Используется в beforeAll для быстрой проверки без запуска контейнеров
  */
 export async function verifyDocker() {
-  const docker = getDockerClient();
+  const docker = getDockerClientForProfile(); // Local Docker
   await docker.ping();
 }
 
@@ -211,7 +211,7 @@ export async function restartTestContainers() {
   }
   
   // Additional wait for containers to be fully ready (healthcheck might take time)
-  const docker = getDockerClient();
+  const docker = getDockerClientForProfile(); // Local Docker
   const postgresReady = await waitForContainerReady(docker, 'test-postgres');
   const redisReady = await waitForContainerReady(docker, 'test-redis');
   const webReady = await waitForContainerReady(docker, 'test-web');
