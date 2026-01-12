@@ -303,11 +303,11 @@ export class EnvTools {
       const sshConfig = loadProfileConfig(args.profile);
       
       // Only read remote if actually remote (not local mode)
-      if (sshConfig) {
-        // ✅ FIX: Use unified remote compose reader (no duplication)
-        const remoteResult = await readRemoteComposeContent(projectName, sshConfig);
-        composeContent = remoteResult.content;
-        composeFile = remoteResult.filePath;
+    if (sshConfig) {
+      // ✅ FIX: Use unified remote compose reader (no duplication)
+      const remoteResult = await readRemoteComposeContent(projectName, sshConfig);
+      composeContent = remoteResult.content;
+      composeFile = remoteResult.filePath;
       }
     } else {
       // Local mode: use local file
