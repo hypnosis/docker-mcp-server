@@ -1,6 +1,6 @@
 {
   "name": "@hypnosis/docker-mcp-server",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Universal Docker MCP server for AI assistants (Cursor, Claude Desktop)",
   "type": "module",
   "main": "./dist/index.js",
