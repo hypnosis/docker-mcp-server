@@ -58,10 +58,36 @@
       <data key="nodeType">module</data>
       <data key="nodeColor">#E8F5E9</data>
     </node>
+
+    <!-- Remote Discovery (SSH-based) -->
+    <node id="remote-project-discovery">
+      <data key="nodeLabel">Remote Project Discovery (remote-discovery.ts) ✅</data>
+      <data key="nodeType">module</data>
+      <data key="nodeColor">#E8F5E9</data>
+    </node>
+
+    <node id="ssh-exec">
+      <data key="nodeLabel">SSH Exec (ssh-exec.ts) ✅</data>
+      <data key="nodeType">utility</data>
+      <data key="nodeColor">#FAFAFA</data>
+    </node>
     
-    <!-- Docker Client -->
+    <!-- Profiles / Client Pool -->
+    <node id="profiles-file">
+      <data key="nodeLabel">Profiles File Loader (profiles-file.ts) ✅</data>
+      <data key="nodeType">module</data>
+      <data key="nodeColor">#FFF9C4</data>
+    </node>
+
+    <node id="docker-client-pool">
+      <data key="nodeLabel">Docker Client Pool (by profile) ✅</data>
+      <data key="nodeType">utility</data>
+      <data key="nodeColor">#FAFAFA</data>
+    </node>
+
+    <!-- Docker Client (runtime) -->
     <node id="docker-client">
-      <data key="nodeLabel">Dockerode Client ✅</data>
+      <data key="nodeLabel">Docker Client (Dockerode + SSH Tunnel) ✅</data>
       <data key="nodeType">client</data>
       <data key="nodeColor">#F3E5F5</data>
     </node>
@@ -106,6 +132,12 @@
     
     <node id="env-tools">
       <data key="nodeLabel">Environment Tools (3 commands) ✅</data>
+      <data key="nodeType">tools</data>
+      <data key="nodeColor">#FCE4EC</data>
+    </node>
+
+    <node id="discovery-tools">
+      <data key="nodeLabel">Discovery Tools (docker_projects) ✅</data>
       <data key="nodeType">tools</data>
       <data key="nodeColor">#FCE4EC</data>
     </node>
@@ -205,6 +237,11 @@
       <data key="edgeLabel">calls</data>
       <data key="edgeType">interface</data>
     </edge>
+
+    <edge id="e1g" source="cli" target="discovery-tools">
+      <data key="edgeLabel">calls</data>
+      <data key="edgeType">interface</data>
+    </edge>
     
     <!-- Edges: MCP Server to Tools -->
     <edge id="e2" source="mcp-server" target="container-tools">
@@ -231,6 +268,11 @@
       <data key="edgeLabel">registers</data>
       <data key="edgeType">registration</data>
     </edge>
+
+    <edge id="e5e" source="mcp-server" target="discovery-tools">
+      <data key="edgeLabel">registers</data>
+      <data key="edgeType">registration</data>
+    </edge>
     
     <!-- Edges: Tools to Managers/Discovery -->
     <edge id="e6" source="container-tools" target="container-manager">
@@ -252,6 +294,16 @@
       <data key="edgeLabel">uses</data>
       <data key="edgeType">dependency</data>
     </edge>
+
+    <edge id="e13c" source="discovery-tools" target="docker-client-pool">
+      <data key="edgeLabel">uses (getDockerClientForProfile)</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+
+    <edge id="e13d" source="discovery-tools" target="remote-project-discovery">
+      <data key="edgeLabel">uses (detailed remote discovery via SSH)</data>
+      <data key="edgeType">dependency</data>
+    </edge>
     
     <!-- Edges: Project Discovery -->
     <edge id="e14" source="project-discovery" target="compose-parser">
@@ -268,6 +320,21 @@
       <data key="edgeLabel">uses</data>
       <data key="edgeType">dependency</data>
     </edge>
+
+    <edge id="e14f" source="remote-project-discovery" target="compose-parser">
+      <data key="edgeLabel">parses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+
+    <edge id="e14g" source="remote-project-discovery" target="types">
+      <data key="edgeLabel">uses</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+
+    <edge id="e14h" source="remote-project-discovery" target="ssh-exec">
+      <data key="edgeLabel">exec/read/find via SSH</data>
+      <data key="edgeType">dependency</data>
+    </edge>
     
     <edge id="e14d" source="project-discovery" target="config-merger">
       <data key="edgeLabel">uses</data>
@@ -280,8 +347,8 @@
     </edge>
     
     <!-- Edges: Managers to Docker Client -->
-    <edge id="e17" source="container-manager" target="docker-client">
-      <data key="edgeLabel">uses (Docker API with labels filter)</data>
+    <edge id="e17" source="container-manager" target="docker-client-pool">
+      <data key="edgeLabel">gets DockerClient for profile</data>
       <data key="edgeType">dependency</data>
     </edge>
     
@@ -296,7 +363,17 @@
     </edge>
     
     <edge id="e17f" source="container-manager" target="docker-client">
-      <data key="edgeLabel">uses (labels filter priority)</data>
+      <data key="edgeLabel">uses (Docker API via Dockerode)</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+
+    <edge id="e17h" source="docker-client-pool" target="profiles-file">
+      <data key="edgeLabel">loads profiles</data>
+      <data key="edgeType">dependency</data>
+    </edge>
+
+    <edge id="e17i" source="docker-client-pool" target="docker-client">
+      <data key="edgeLabel">creates/caches</data>
       <data key="edgeType">dependency</data>
     </edge>
     
@@ -440,8 +517,8 @@
     </edge>
     
     <!-- Edges: MCP Health Tool -->
-    <edge id="e65" source="mcp-health-tool" target="docker-client">
-      <data key="edgeLabel">checks</data>
+    <edge id="e65" source="mcp-health-tool" target="docker-client-pool">
+      <data key="edgeLabel">checks (via getDockerClientForProfile)</data>
       <data key="edgeType">dependency</data>
     </edge>
     
@@ -502,6 +579,31 @@
     </edge>
     
     <edge id="e70" source="mcp-health-tool" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+
+    <edge id="e75" source="discovery-tools" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+
+    <edge id="e76" source="remote-project-discovery" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+
+    <edge id="e77" source="ssh-exec" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+
+    <edge id="e78" source="profiles-file" target="logger">
+      <data key="edgeLabel">logs to</data>
+      <data key="edgeType">logging</data>
+    </edge>
+
+    <edge id="e79" source="docker-client-pool" target="logger">
       <data key="edgeLabel">logs to</data>
       <data key="edgeType">logging</data>
     </edge>
